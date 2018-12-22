@@ -39,3 +39,10 @@ def test_scaled_hd_graph_off():
     exp = np.array([[3.586866037637317]])
     res = sess.run([hd.scaled_hd_graph(log_pitches, vectors, c=0.05)])
     np.testing.assert_almost_equal(exp, res)
+
+def test_scaled_hd_graph_2d():
+    log_pitches = np.array([[7.0, 10.0]]) / 12.0
+    vectors = hd.vectors.space_graph(4, 3)
+    exp = np.array([[15.549381852281275]])
+    res = sess.run([hd.scaled_hd_graph(log_pitches, vectors, c=0.1)])
+    np.testing.assert_almost_equal(exp, res)

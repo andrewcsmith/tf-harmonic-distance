@@ -38,6 +38,6 @@ def scaled_hd_graph(log_pitches, vectors, c=0.05):
     hds = hds + 1.0
     hds = tf.tile(hds[:, None, None], [1, scales.shape[1], scales.shape[2]])
     hds = hds * tf.reciprocal(scales)
-    hds = tf.reduce_sum(hds, axis=-1)
     hds = tf.reduce_min(hds, axis=0)
+    hds = tf.reduce_mean(hds, axis=1)
     return hds

@@ -1,7 +1,6 @@
 import hd
 import numpy as np
 import tensorflow as tf
-import matplotlib.pyplot as plt
 
 c = 0.1
 n_points = 1024

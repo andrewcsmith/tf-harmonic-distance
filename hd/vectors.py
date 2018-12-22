@@ -35,6 +35,12 @@ def closest_from_log(log_pitches, vectors):
     mins = tf.argmin(tf.abs(log_vectors - log_pitches), axis=1)
     return tf.map_fn(lambda m: vectors[m, :], mins, dtype=tf.float64)
 
+def sorted_from_log(log_pitches, vectors, n_returned=1):
+    log_vectors = pd_graph(vectors)
+    diffs = tf.abs(log_vectors - log_pitches)
+    sorted_vectors = tf.contrib.framework.argsort(diffs, axis=1)
+    return tf.gather(vectors, sorted_vectors[:, :n_returned])
+
 def to_ratio(vector):
     primes = PRIMES[:vector.shape[0]]
     num = np.where(vector > 0, vector, np.zeros_like(primes))

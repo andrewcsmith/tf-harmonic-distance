@@ -31,14 +31,22 @@ def hd_aggregate_graph(n_primes, aggregates):
     hds = exploded_hd_graph(n_primes, aggregates)
     return tf.map_fn(get_hd_sum, hds)
 
-def scaled_hd_graph(log_pitches, vectors, c=0.05):
-    scales = scales_graph(log_pitches, vectors, c=c) + 2.0e-32
+def scaled_hd_graph(log_pitches, vectors, c=0.05, coeff=E):
+    # scales_graph should take the euclidean distance in 2 dimensions
+    # TODO: We need to take the scales_graph of each combo in the basis space,
+    # not of the raw log_pitches, and then take the euclidean distance of that
+    scales = scales_graph(log_pitches, vectors, c=c, coeff=coeff) + 2.0e-32
     n_primes = vectors.shape[-1]
+    # returns the hd of every vector in the list: [vectors.shape[0]]
+    # A: [n_vectors]
     hds = hd_graph(n_primes, vectors)
     hds = hds + 1.0
+    # n_pairs = the number of combinatorial pairs 
+    # T: [n_vectors, n_vectors, n_pairs]
     hds = tf.tile(hds[:, None, None], [1, scales.shape[1], scales.shape[2]])
     hds = hds * tf.reciprocal(scales)
-    hds = hds - 1.0
     hds = tf.reduce_min(hds, axis=0)
     hds = tf.reduce_mean(hds, axis=1)
+    hds = hds - 1.0
     return hds
+

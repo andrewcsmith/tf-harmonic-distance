@@ -21,14 +21,18 @@ def space_graph(n_primes, n_degrees, bounds=None, name=None):
         vectors = tf.boolean_mask(vectors, out_of_bounds_mask)
     return vectors
 
-def scales_graph(log_pitches, vectors, c=0.05, bounds=None):
+def scales_graph(log_pitches, vectors, c=0.05, bounds=None, coeff=E):
+    """
+    Calculate the scale factor (between 0.0 - 1.0) for each of log_pitches, for
+    each dimension.
+    """
     pitch_distances = tf.expand_dims(pd_graph(vectors), -1)
     tiled_ones = tf.ones_like(pitch_distances) * -1.0
     bases = get_bases(log_pitches.shape[-1] + 1)
     combinatorial_log_pitches = tf.abs(tf.tensordot(log_pitches, bases, 1))
     combos = tf.tensordot(tiled_ones, combinatorial_log_pitches[None, :, :], 1)
     diffs = tf.abs(tf.add(tf.expand_dims(pitch_distances, 1), combos))
-    return parabolic_scale(diffs, c)
+    return parabolic_scale(diffs, c, coeff=coeff)
 
 def closest_from_log(log_pitches, vectors):
     log_vectors = pd_graph(vectors)

@@ -11,6 +11,18 @@ def log2_graph(val):
 def parabolic_scale(diffs, c, coeff=E):
     return tf.pow(coeff, -1.0 * (diffs**2 / (2.0 * c**2)))
 
+def reduce_euclid(coords, axis=1):
+    out = tf.square(coords)
+    out = tf.reduce_sum(out, axis)
+    out = tf.sqrt(out)
+    return out
+
+def reduce_parabola(coords, axis=1, a=1.0, b=1.0):
+    out = tf.square(coords)
+    out = out / tf.constant([a, b], dtype=tf.float64)
+    out = tf.reduce_sum(out, axis)
+    return out
+
 def combinatorial_contour(vec): 
     combos = np.array(list(itertools.combinations(vec, 2)))
     return combos[:, 0] - combos[:, 1]

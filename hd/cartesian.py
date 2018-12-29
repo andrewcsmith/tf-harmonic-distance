@@ -23,6 +23,9 @@ def permutations(a, times=2, name=None):
     Shortcut for generating the Cartesian product of self, using indices so
     that we can work with a small number of elements initially.
     """
-    options = tf.range(tf.shape(a)[0])
-    indices = cartesian_graph([options for _ in range(times)])
-    return tf.gather(a, indices, name=name)
+    if times > 1:
+        options = tf.range(tf.shape(a)[0])
+        indices = cartesian_graph([options for _ in range(times)])
+        return tf.gather(a, indices, name=name)
+    else:
+        return a

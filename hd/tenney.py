@@ -32,6 +32,12 @@ def hd_aggregate_graph(aggregates):
     hds = exploded_hd_graph(n_primes, aggregates)
     return tf.map_fn(get_hd_sum, hds)
 
+def pd_aggregate_graph(aggregates):
+    primes = tf.constant(PRIMES[:aggregates.shape[-1]], dtype=tf.float64)
+    pds = tf.pow(primes, aggregates)
+    pds = tf.reduce_prod(pds, 2)
+    return log2_graph(pds)
+
 def scaled_hd_graph(log_pitches, vectors, c=0.05, coeff=E):
     scales = scales_graph(log_pitches, vectors, c=c, coeff=coeff) + 2.0e-32
     n_primes = vectors.shape[-1]

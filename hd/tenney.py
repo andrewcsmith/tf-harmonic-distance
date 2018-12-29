@@ -19,7 +19,8 @@ def hd_graph(n_primes, vecs):
     hds = exploded_hd_graph(n_primes, vecs)
     return tf.reduce_sum(tf.abs(hds), axis=1)
 
-def hd_aggregate_graph(n_primes, aggregates):
+def hd_aggregate_graph(aggregates):
+    n_primes = aggregates.shape[-1]
     bases = get_bases(aggregates.shape[1] + 1)
     def get_hd_sum(hd):
         hd = tf.transpose(hd)

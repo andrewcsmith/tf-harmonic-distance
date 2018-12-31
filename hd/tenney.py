@@ -21,6 +21,9 @@ def hd_graph(vecs):
     return tf.reduce_sum(tf.abs(hds), axis=1)
 
 def hd_root_valence(vecs):
+    """
+    Returns the "signed" pitch class harmonic root distance.
+    """
     return tf.reduce_sum(exploded_hd_graph(vecs)[:, 1:], axis=1)
 
 def hd_aggregate_graph(aggregates):

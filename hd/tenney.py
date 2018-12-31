@@ -20,6 +20,9 @@ def hd_graph(vecs):
     hds = exploded_hd_graph(vecs)
     return tf.reduce_sum(tf.abs(hds), axis=1)
 
+def hd_root_valence(vecs):
+    return tf.reduce_sum(exploded_hd_graph(vecs)[:, 1:], axis=1)
+
 def hd_aggregate_graph(aggregates):
     bases = get_bases(aggregates.shape[1] + 1)
     def get_hd_sum(hd):

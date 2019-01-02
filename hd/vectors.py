@@ -15,11 +15,28 @@ def pd_graph(vectors):
 def space_graph(n_primes, n_degrees, bounds=None, name=None):
     vectors = permutations(tf.range(-n_degrees, n_degrees+1, dtype=tf.float64), times=n_primes, name=name)
     if bounds is not None:
-        pitch_distances = pd_graph(vectors)
-        out_of_bounds_mask = tf.logical_and(tf.less_equal(pitch_distances, bounds[1]), tf.greater_equal(pitch_distances, bounds[0]))
-        pitch_distances = tf.boolean_mask(pitch_distances, out_of_bounds_mask)
-        vectors = tf.boolean_mask(vectors, out_of_bounds_mask)
-    return vectors
+        return restrict_bounds(tf.cast(vectors, tf.float64), bounds)
+    else:
+        return vectors
+
+def restrict_bounds(vectors, bounds):
+    pitch_distances = pd_graph(vectors)
+    out_of_bounds_mask = tf.logical_and(tf.less_equal(pitch_distances, bounds[1]), tf.greater_equal(pitch_distances, bounds[0]))
+    pitch_distances = tf.boolean_mask(pitch_distances, out_of_bounds_mask)
+    return tf.boolean_mask(vectors, out_of_bounds_mask)
+
+def space_graph_altered_permutations(limits, bounds=None, name=None):
+    """
+    This function is similar to space_graph, except it allows us to specify a
+    prime limit for every dimension.
+    """
+    vectors = tf.meshgrid(*[list(range(-i, i+1)) for i in limits], indexing='ij')
+    vectors = tf.stack(vectors, axis=-1)
+    vectors = tf.reshape(vectors, (-1, tf.shape(limits)[0]))
+    if bounds is not None:
+        return restrict_bounds(tf.cast(vectors, tf.float64), bounds)
+    else:
+        return vectors
 
 def scales_graph(log_pitches, vectors, c=0.05, bounds=None, coeff=E):
     """

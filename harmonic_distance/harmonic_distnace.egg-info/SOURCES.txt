@@ -1,0 +1,12 @@
+README.md
+setup.py
+harmonic_distance/__init__.py
+harmonic_distance/cartesian.py
+harmonic_distance/optimize.py
+harmonic_distance/tenney.py
+harmonic_distance/utilities.py
+harmonic_distance/vectors.py
+harmonic_distnace.egg-info/PKG-INFO
+harmonic_distnace.egg-info/SOURCES.txt
+harmonic_distnace.egg-info/dependency_links.txt
+harmonic_distnace.egg-info/top_level.txt

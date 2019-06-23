@@ -33,7 +33,7 @@ def space_graph_altered_permutations(limits, bounds=None, name=None):
     vectors = tf.meshgrid(*[list(range(-i, i+1)) for i in limits], indexing='ij')
     vectors = tf.stack(vectors, axis=-1)
     vectors = tf.reshape(vectors, (-1, tf.shape(limits)[0]))
-    if bounds is not None:
+    if bounds is not None:  
         return restrict_bounds(tf.cast(vectors, tf.float64), bounds)
     else:
         return vectors

@@ -1,0 +1,18 @@
+package:
+  name: harmonic_distance
+  version: "0.0.1"
+
+requirements:
+  host:
+    - python
+    - setuptools
+  run:
+    - python
+    - tensorflow
+    - numpy
+
+about:
+  home: "https://www.github.com/andrewcsmith/tf-harmonic-distance"
+  license: "MIT"
+  license_file: "LICENSE"
+  

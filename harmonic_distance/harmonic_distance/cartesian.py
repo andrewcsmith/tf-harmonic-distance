@@ -12,4 +12,4 @@ def permutations(a, times=2, name=None):
         indices = tf.reshape(indices, (-1, times))
         return tf.gather(a, indices, name=name)
     else:
-        return a
+        return a[:, None, :]

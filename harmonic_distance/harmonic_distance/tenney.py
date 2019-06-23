@@ -1,7 +1,6 @@
 import tensorflow as tf
 import itertools
 import numpy as np
-from .cartesian import * 
 from . import PRIMES
 from .utilities import *
 from .vectors import *
@@ -22,7 +21,9 @@ def hd_graph(vecs):
 
 def hd_root_valence(vecs):
     """
-    Returns the "signed" pitch class harmonic root distance.
+    Returns the "signed" pitch class harmonic root distance. Intuitively, this
+    tells us how "powerful" the interval's valence is; more ambiguous intervals
+    will give lower absolute values for this.
     """
     return tf.reduce_sum(exploded_hd_graph(vecs)[:, 1:], axis=1)
 
@@ -49,7 +50,7 @@ def scaled_hd_graph(log_pitches, vectors, c=0.05, coeff=E):
     hds = hd_graph(vectors)
     hds = hds + 1.0
     hds = tf.tile(hds[:, None, None], [1, scales.shape[1], scales.shape[2]])
-    hds = hds * tf.reciprocal(scales)
+    hds = hds * tf.math.reciprocal(scales)
     hds = tf.reduce_min(hds, axis=0)
     hds = tf.reduce_mean(hds, axis=1)
     hds = hds - 1.0

@@ -16,7 +16,6 @@ def stopping_op(get_loss, var_list, lr=1.0e-3, ct=1.0e-16):
     norms = tf.nn.l2_loss(dz_dv)
     stop = norms < ct
     opt.apply_gradients(zip(dz_dv, var_list))
-       
     return stop
 
 def parabolic_loss_function(pds, hds, log_pitches, curves=None):

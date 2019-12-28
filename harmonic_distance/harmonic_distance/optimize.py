@@ -2,21 +2,22 @@ import tensorflow as tf
 
 from .utilities import reduce_parabola
 
-def stopping_op(loss, var_list, lr=1.0e-3, ct=1.0e-16):
+def stopping_op(get_loss, var_list, lr=1.0e-3, ct=1.0e-16):
     """
     Given a loss function and a variable list, gives a stopping condition Tensor that 
     can be evaluated to see whether the variables have properly converged. 
     """
-    opt = tf.optimizers.Adagrad(learning_rate=lr)
-    compute_grad_op = opt.get_gradients(loss, var_list)
-    # grad_norms_op = [tf.nn.l2_loss(g) for g, v in compute_grad_op]
-    # grad_norm_op = tf.add_n(grad_norms_op, name="grad_norm")
+    opt = tf.optimizers.Adam(learning_rate=lr)
 
-    # with tf.control_dependencies([opt.apply_gradients(compute_grad_op)]):
-    #     vals = tf.less(grad_norm_op, tf.constant(ct, dtype=tf.float64))
-    #     stopping_condition_op = tf.reduce_all(vals)
-    
-    # return stopping_condition_op
+    with tf.GradientTape() as g:
+        loss = get_loss()
+        dz_dv = g.gradient(loss, var_list)
+        # print("Gradients: ", dz_dv)
+    norms = tf.nn.l2_loss(dz_dv)
+    stop = norms < ct
+    opt.apply_gradients(zip(dz_dv, var_list))
+       
+    return stop
 
 def parabolic_loss_function(pds, hds, log_pitches, curves=None):
     """

@@ -9,8 +9,24 @@ import harmonic_distance as hd
 import numpy as np
 
 def test_stopping_op():
-    log_pitches = tf.Variable(tf.random.uniform([64, 2], 0.0, 1.0, dtype=tf.float64))
+    # Load in test data and initiatlize pitches
     pds = np.load("test_data/pds.npy")
     hds = np.load("test_data/hds.npy")
-    loss = hd.optimize.parabolic_loss_function(pds, hds, log_pitches, curves=(0.1, 0.1))
-    stopping_op = hd.optimize.stopping_op(loss, [log_pitches])
+    log_pitches = tf.Variable(np.log2([4.1/3.0, 1.5]), dtype=tf.float64)
+
+    @tf.function
+    def get_loss():
+        return hd.optimize.parabolic_loss_function(pds, hds, log_pitches, curves=(0.02, 0.02))
+    
+    def take_step():
+        return hd.optimize.stopping_op(get_loss, [log_pitches])
+    
+    print(take_step())
+    print(log_pitches)
+    print(take_step())
+    print(log_pitches)
+    for i in range(1000):
+        take_step()
+    print(log_pitches)
+
+test_stopping_op()

@@ -25,4 +25,4 @@ def parabolic_loss_function(pds, hds, log_pitches, curves=None):
     log_pitches: The set of pitches to evaluate
     """
     distances = tf.map_fn(lambda x: reduce_parabola(pds - x, curves=curves), log_pitches)
-    return tf.reduce_min(distances * hds + hds, axis=1)
+    return tf.reduce_min(distances * (hds + 1.0) + hds, axis=1)

@@ -7,7 +7,7 @@ def stopping_op(get_loss, var_list, lr=1.0e-3, ct=1.0e-16):
     Given a loss function and a variable list, gives a stopping condition Tensor that 
     can be evaluated to see whether the variables have properly converged. 
     """
-    opt = tf.optimizers.Adam(learning_rate=lr)
+    opt = tf.optimizers.Adagrad(learning_rate=lr)
 
     with tf.GradientTape() as g:
         loss = get_loss()

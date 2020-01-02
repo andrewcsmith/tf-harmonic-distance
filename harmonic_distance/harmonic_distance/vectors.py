@@ -1,7 +1,14 @@
 import tensorflow as tf
 from . import PRIMES
+from . import tenney
 from .utilities import *
 from .cartesian import permutations
+
+# Create default prime limits for ease of use
+PRIME_LIMITS = [5, 5, 3, 3, 2, 1]
+PD_BOUNDS = (0.0, 4.0)
+HD_LIMIT = 9.0
+DIMS = 2
 
 def pd_graph(vectors):
     """
@@ -70,3 +77,16 @@ def to_ratio(vector):
         np.product(np.power(primes, num)),
         np.product(primes ** np.abs(den))
     )
+
+class VectorSpace(tf.Module):
+    def __init__(self, *args, **kwargs):
+        self.perms = tf.Variable(VectorSpace.get_perms(**kwargs))
+        self.hds = tf.Variable(tenney.hd_aggregate_graph(self.perms))
+        self.pds = tf.Variable(tenney.pd_aggregate_graph(self.perms))
+
+    @tf.function
+    def get_perms(prime_limits=PRIME_LIMITS, pd_bounds=PD_BOUNDS, hd_limit=HD_LIMIT, dimensions=DIMS):
+        vectors = space_graph_altered_permutations(prime_limits, bounds=pd_bounds)
+        vectors_hds = tenney.hd_aggregate_graph(tf.cast(vectors[:, None, :], tf.float64))
+        vectors_in_hd_limit = tf.boolean_mask(vectors, vectors_hds < hd_limit)
+        return permutations(vectors_in_hd_limit, times=dimensions)

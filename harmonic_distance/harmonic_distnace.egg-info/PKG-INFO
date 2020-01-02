@@ -14,6 +14,6 @@ Description: [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.o
         Click the button above to launch it as a notebook via Bindery.
         
 Platform: UNKNOWN
-Classifier: Porgramming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent

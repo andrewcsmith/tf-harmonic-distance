@@ -8,7 +8,7 @@ from .cartesian import permutations
 PRIME_LIMITS = [5, 5, 3, 3, 2, 1]
 PD_BOUNDS = (0.0, 4.0)
 HD_LIMIT = 9.0
-DIMS = 2
+DIMS = 1
 
 def pd_graph(vectors):
     """

@@ -80,13 +80,13 @@ def to_ratio(vector):
 
 class VectorSpace(tf.Module):
     def __init__(self, *args, **kwargs):
-        self.perms = tf.Variable(VectorSpace.get_perms(**kwargs))
+        self.perms = tf.Variable(self.get_perms(**kwargs))
         self.hds = tf.Variable(tenney.hd_aggregate_graph(self.perms))
         self.pds = tf.Variable(tenney.pd_aggregate_graph(self.perms))
 
     @tf.function
-    def get_perms(prime_limits=PRIME_LIMITS, pd_bounds=PD_BOUNDS, hd_limit=HD_LIMIT, dimensions=DIMS):
+    def get_perms(self, prime_limits=PRIME_LIMITS, pd_bounds=PD_BOUNDS, hd_limit=HD_LIMIT, dimensions=DIMS):
         vectors = space_graph_altered_permutations(prime_limits, bounds=pd_bounds)
         vectors_hds = tenney.hd_aggregate_graph(tf.cast(vectors[:, None, :], tf.float64))
-        vectors_in_hd_limit = tf.boolean_mask(vectors, vectors_hds < hd_limit)
-        return permutations(vectors_in_hd_limit, times=dimensions)
+        self.vectors_in_hd_limit = tf.boolean_mask(vectors, vectors_hds < hd_limit)
+        return permutations(self.vectors_in_hd_limit, times=dimensions)

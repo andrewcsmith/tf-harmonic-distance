@@ -88,5 +88,5 @@ class VectorSpace(tf.Module):
     def get_perms(self, prime_limits=PRIME_LIMITS, pd_bounds=PD_BOUNDS, hd_limit=HD_LIMIT, dimensions=DIMS):
         vectors = space_graph_altered_permutations(prime_limits, bounds=pd_bounds)
         vectors_hds = tenney.hd_aggregate_graph(tf.cast(vectors[:, None, :], tf.float64))
-        self.vectors_in_hd_limit = tf.boolean_mask(vectors, vectors_hds < hd_limit)
-        return permutations(self.vectors_in_hd_limit, times=dimensions)
+        self.vectors = tf.boolean_mask(vectors, vectors_hds < hd_limit)
+        return permutations(self.vectors, times=dimensions)

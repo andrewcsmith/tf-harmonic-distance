@@ -4,3 +4,5 @@
 James Tenney's harmonic distance metrics in tensorflow, for n-dimensions
 
 Click the button above to launch it as a notebook via Bindery.
+
+Main library code lives in the `harmonic_distance/` subfolder, including tests.

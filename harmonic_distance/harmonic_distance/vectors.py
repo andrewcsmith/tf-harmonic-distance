@@ -84,7 +84,6 @@ class VectorSpace(tf.Module):
         self.hds = tf.Variable(tenney.hd_aggregate_graph(self.perms))
         self.pds = tf.Variable(tenney.pd_aggregate_graph(self.perms))
 
-    @tf.function
     def get_perms(self, prime_limits=PRIME_LIMITS, pd_bounds=PD_BOUNDS, hd_limit=HD_LIMIT, dimensions=DIMS):
         vectors = space_graph_altered_permutations(prime_limits, bounds=pd_bounds)
         vectors_hds = tenney.hd_aggregate_graph(tf.cast(vectors[:, None, :], tf.float64))

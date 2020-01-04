@@ -13,8 +13,8 @@ DIMS = 1
 
 def pd_graph(vectors):
     """
-    Calculate the pitch distance (log2 of ratio) of each
-    vector, provided as a row of prime factor exponents.
+    Calculate the pitch distance (log2 of ratio) of each vector, provided as a
+    row of prime factor exponents.
     """
     prime_slice = PRIMES[:vectors.shape[-1]]
     float_ratio = tf.reduce_prod(tf.pow(tf.constant(prime_slice, dtype=tf.float64), vectors), axis=1)

@@ -1,7 +1,8 @@
 import tensorflow as tf
+import numpy as np
 from . import PRIMES
 from . import tenney
-from .utilities import *
+from .utilities import log2_graph, E, get_bases, parabolic_scale
 from .cartesian import permutations
 
 # Create default prime limits for ease of use

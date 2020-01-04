@@ -66,7 +66,7 @@ def closest_from_log(log_pitches, vectors):
 def sorted_from_log(log_pitches, vectors, n_returned=1):
     log_vectors = pd_graph(vectors)
     diffs = tf.abs(log_vectors - log_pitches)
-    sorted_vectors = tf.contrib.framework.argsort(diffs, axis=1)
+    sorted_vectors = tf.argsort(diffs, axis=1)
     return tf.gather(vectors, sorted_vectors[:, :n_returned])
 
 def to_ratio(vector):

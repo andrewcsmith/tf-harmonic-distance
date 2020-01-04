@@ -38,3 +38,17 @@ def test_parabolic_loss_function_1d():
     exp = np.log2([1.0, 6, 2, 3, 4])
     res = loss(log_pitches)
     np.testing.assert_almost_equal(exp, res)
+
+def test_minimizer_1d():
+    minimizer = hd.optimize.Minimizer(dimensions=1, prime_limits=[3, 2, 2, 1])
+    minimizer.log_pitches.assign([4/12])
+    minimizer.minimize()
+    exp = np.log2([5/4])
+    np.testing.assert_almost_equal(exp, minimizer.log_pitches.numpy(), 5)
+
+def test_minimizer_2d():
+    minimizer = hd.optimize.Minimizer(dimensions=2, prime_limits=[3, 2, 2, 1], convergence_threshold=1.0e-6)
+    minimizer.log_pitches.assign([4/12, 7/12])
+    minimizer.minimize()
+    exp = np.log2([5/4, 3/2])
+    np.testing.assert_almost_equal(exp, minimizer.log_pitches.numpy(), 5)

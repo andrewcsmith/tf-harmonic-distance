@@ -1,7 +1,7 @@
 import tensorflow as tf
 import datetime
 
-from .utilities import reduce_parabola
+from .utilities import reduce_parabola, log2_graph
 from .vectors import VectorSpace
 
 def parabolic_loss_function(pds, hds, log_pitches, curves=None):
@@ -15,7 +15,7 @@ def parabolic_loss_function(pds, hds, log_pitches, curves=None):
     return tf.reduce_min(scaled, axis=0)
 
 class Minimizer(tf.Module):
-    def __init__(self, dimensions=1, learning_rate=1.0e-2, max_iters=1000, convergence_threshold=1.0e-5, c=0.01, **kwargs):
+    def __init__(self, dimensions=1, learning_rate=1.0e-2, max_iters=1000, convergence_threshold=1.0e-5, c=0.01, batch_size=1, **kwargs):
         """
         dimensions: Dimensionality of the space. This is only finding the
         minimum of a single interval.
@@ -32,29 +32,37 @@ class Minimizer(tf.Module):
         self.learning_rate = learning_rate
         self.max_iters = max_iters
         self.convergence_threshold = convergence_threshold
-        self.curves = [c for _ in range(self.dimensions)]
-        self.vs = VectorSpace(**kwargs)
-        self.log_pitches = tf.Variable(tf.zeros((dimensions), dtype=tf.float64), dtype=tf.float64)
+        self.curves = tf.Variable(tf.ones([dimensions], dtype=tf.float64))
+        self.set_all_curves(c)
+        self.vs = VectorSpace(dimensions=dimensions, **kwargs)
+        self.log_pitches = tf.Variable(tf.zeros(([batch_size, dimensions]), dtype=tf.float64), dtype=tf.float64)
         self.step = tf.Variable(0, dtype=tf.int64)
+
+    def set_all_curves(self, c):
+        self.curves.assign([c for _ in range(self.dimensions)])
     
-    def minimize(self):
+    def minimize(self, log=False):
         self.step.assign(0)
-        self.writers = [self.timestamped_writer(var='/main')]
-        for idx in range(self.dimensions):
-            self.writers.append(self.timestamped_writer(var=("/pitch{}".format(idx+1))))
+        if log:
+            self.writers = [self.timestamped_writer(var='/main')]
+            for idx in range(self.dimensions):
+                self.writers.append(self.timestamped_writer(var=("/pitch{}".format(idx+1))))
         # Since Adagrad maintains state, we need to reset it at the start of each call to minimize()
-        self.opt = tf.optimizers.Adagrad(learning_rate=self.learning_rate)
-        self.write_values()
+        self.opt = tf.optimizers.Adadelta(learning_rate=self.learning_rate)
+        if log:
+            self.write_values()
         while self.stopping_op() and self.step < self.max_iters:
             self.opt.minimize(lambda: self.loss(self.log_pitches), self.log_pitches)
             self.step.assign_add(1)
-            self.write_values()
-        if self.stopping_op():
-            with self.writers[0].as_default():
-                tf.summary.text("convergence", "did not converge", step=self.step)
-        else:
-            with self.writers[0].as_default():
-                tf.summary.text("convergence", "converged", step=self.step)
+            if log:
+                self.write_values()
+        if log:
+            if self.stopping_op():
+                with self.writers[0].as_default():
+                    tf.summary.text("convergence", "did not converge", step=self.step)
+            else:
+                with self.writers[0].as_default():
+                    tf.summary.text("convergence", "converged", step=self.step)
 
     def write_values(self):
         current_loss = self.loss(self.log_pitches)
@@ -67,7 +75,7 @@ class Minimizer(tf.Module):
         for idx, writer in enumerate(self.writers[1:]):
             with writer.as_default():
                 tf.summary.scalar("loss", current_loss[idx], step=self.step)
-                tf.summary.scalar("pitch", self.log_pitches[idx], step=self.step)
+                tf.summary.scalar("pitch-cents", self.log_pitches[idx] * 1200.0, step=self.step)
                 
     def timestamped_writer(self, var=''):
         return tf.summary.create_file_writer('logs/fit/' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + var)

@@ -42,6 +42,19 @@ class Minimizer(tf.Module):
 
     def set_all_curves(self, c):
         self.curves.assign([c for _ in range(self.dimensions)])
+
+    @tf.function
+    def minimize(self):
+        self.step.assign(0)
+        self.reinitialize_weights()
+        while self.stopping_op() and self.step < self.max_iters:
+            self.opt.minimize(self.static_loss, self.log_pitches)
+            self.step.assign_add(1)
+    
+    @tf.function
+    def reinitialize_weights(self):
+        for w in self.opt.weights[1:]:
+            w.assign(tf.zeros_like(w))
     
     def minimize_logged(self, log=False):
         self.step.assign(0)
@@ -64,19 +77,9 @@ class Minimizer(tf.Module):
             else:
                 with self.writers[0].as_default():
                     tf.summary.text("convergence", "converged", step=self.step)
-
-    @tf.function
-    def minimize(self):
-        self.step.assign(0)
-        self.reinitialize_weights()
-        while self.stopping_op() and self.step < self.max_iters:
-            self.opt.minimize(self.static_loss, self.log_pitches)
-            self.step.assign_add(1)
-    
-    @tf.function
-    def reinitialize_weights(self):
-        for w in self.opt.weights[1:]:
-            w.assign(tf.zeros_like(w))
+                
+    def timestamped_writer(self, var=''):
+        return tf.summary.create_file_writer('logs/fit/' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + var)
 
     def write_values(self):
         current_loss = self.loss(self.log_pitches)
@@ -90,9 +93,6 @@ class Minimizer(tf.Module):
             with writer.as_default():
                 tf.summary.scalar("loss", current_loss[idx], step=self.step)
                 tf.summary.scalar("pitch-cents", self.log_pitches[idx] * 1200.0, step=self.step)
-                
-    def timestamped_writer(self, var=''):
-        return tf.summary.create_file_writer('logs/fit/' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + var)
 
     @tf.function
     def static_loss(self):

@@ -81,6 +81,10 @@ class Minimizer(tf.Module):
         return tf.summary.create_file_writer('logs/fit/' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + var)
 
     @tf.function
+    def static_loss(self):
+        return self.loss(self.log_pitches)
+
+    @tf.function
     def loss(self, var_list):
         return parabolic_loss_function(self.vs.pds, self.vs.hds, var_list, curves=self.curves)
             

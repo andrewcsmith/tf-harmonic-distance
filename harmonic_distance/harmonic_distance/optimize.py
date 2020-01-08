@@ -37,11 +37,13 @@ class Minimizer(tf.Module):
         self.vs = VectorSpace(dimensions=dimensions, **kwargs)
         self.log_pitches = tf.Variable(tf.zeros(([batch_size, dimensions]), dtype=tf.float64), dtype=tf.float64)
         self.step = tf.Variable(0, dtype=tf.int64)
+        self.opt = tf.optimizers.Adadelta(learning_rate=self.learning_rate)
+        self.opt.minimize(self.static_loss, self.log_pitches)
 
     def set_all_curves(self, c):
         self.curves.assign([c for _ in range(self.dimensions)])
     
-    def minimize(self, log=False):
+    def minimize_logged(self, log=False):
         self.step.assign(0)
         if log:
             self.writers = [self.timestamped_writer(var='/main')]
@@ -63,6 +65,19 @@ class Minimizer(tf.Module):
             else:
                 with self.writers[0].as_default():
                     tf.summary.text("convergence", "converged", step=self.step)
+
+    @tf.function
+    def minimize(self):
+        self.step.assign(0)
+        self.reinitialize_weights()
+        while self.stopping_op() and self.step < self.max_iters:
+            self.opt.minimize(self.static_loss, self.log_pitches)
+            self.step.assign_add(1)
+    
+    @tf.function
+    def reinitialize_weights(self):
+        for w in self.opt.weights[1:]:
+            w.assign(tf.zeros_like(w))
 
     def write_values(self):
         current_loss = self.loss(self.log_pitches)

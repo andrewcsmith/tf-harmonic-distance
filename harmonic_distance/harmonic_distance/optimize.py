@@ -48,7 +48,7 @@ class Minimizer(tf.Module):
         self.step.assign(0)
         self.reinitialize_weights()
         while self.stopping_op() and self.step < self.max_iters:
-            self.opt.minimize(self.static_loss, self.log_pitches)
+            self.opt.minimize(self.loss, self.log_pitches)
             self.step.assign_add(1)
     
     @tf.function
@@ -66,7 +66,7 @@ class Minimizer(tf.Module):
         if log:
             self.write_values()
         while self.stopping_op() and self.step < self.max_iters:
-            self.opt.minimize(lambda: self.loss(self.log_pitches), self.log_pitches)
+            self.opt.minimize(self.loss, self.log_pitches)
             self.step.assign_add(1)
             if log:
                 self.write_values()
@@ -95,12 +95,8 @@ class Minimizer(tf.Module):
                 tf.summary.scalar("pitch-cents", self.log_pitches[idx] * 1200.0, step=self.step)
 
     @tf.function
-    def static_loss(self):
-        return self.loss(self.log_pitches)
-
-    @tf.function
-    def loss(self, var_list):
-        return parabolic_loss_function(self.vs.pds, self.vs.hds, var_list, curves=self.curves)
+    def loss(self):
+        return parabolic_loss_function(self.vs.pds, self.vs.hds, self.log_pitches, curves=self.curves)
             
     @tf.function
     def stopping_op(self):

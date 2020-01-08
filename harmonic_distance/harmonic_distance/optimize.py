@@ -106,6 +106,6 @@ class Minimizer(tf.Module):
         converged. 
         """
         with tf.GradientTape() as g:
-            dz_dv = g.gradient(self.loss, self.log_pitches)
+            dz_dv = g.gradient(self.loss(), self.log_pitches)
         norms = tf.nn.l2_loss(dz_dv)
         return norms >= self.convergence_threshold

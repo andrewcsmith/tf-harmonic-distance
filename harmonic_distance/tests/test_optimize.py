@@ -40,14 +40,14 @@ def test_minimizer_loss_function_2d():
     minimizer = hd.optimize.Minimizer(dimensions=2, prime_limits=[3, 2, 1], c=0.001)
     minimizer.log_pitches.assign(np.log2([[5/4, 3/2]]))
     exp = np.array([11.813781191217037])
-    res = minimizer.loss(minimizer.log_pitches)
+    res = minimizer.loss()
     np.testing.assert_almost_equal(exp, res)
 
 def test_minimizer_loss_function_2d_b2():
     minimizer = hd.optimize.Minimizer(dimensions=2, prime_limits=[3, 2, 1], batch_size=2, c=0.001)
     minimizer.log_pitches.assign(np.log2([[5/4, 3/2], [4/3, 3/2]]))
     exp = np.array([11.813781191217037, 12.339850002884624])
-    res = minimizer.loss(minimizer.log_pitches)
+    res = minimizer.loss()
     np.testing.assert_almost_equal(exp, res)
 
 def test_minimizer_1d():

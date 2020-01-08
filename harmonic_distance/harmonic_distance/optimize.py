@@ -29,7 +29,7 @@ class Minimizer(tf.Module):
         value will lead to fewer possible pitches.
         """
         self.dimensions = dimensions
-        self.learning_rate = learning_rate
+        self.learning_rate = tf.Variable(learning_rate)
         self.max_iters = max_iters
         self.convergence_threshold = convergence_threshold
         self.curves = tf.Variable(tf.ones([dimensions], dtype=tf.float64))

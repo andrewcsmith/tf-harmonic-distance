@@ -38,7 +38,7 @@ class Minimizer(tf.Module):
         self.log_pitches = tf.Variable(tf.zeros(([batch_size, dimensions]), dtype=tf.float64), dtype=tf.float64)
         self.step = tf.Variable(0, dtype=tf.int64)
         self.opt = tf.optimizers.Adadelta(learning_rate=self.learning_rate)
-        self.opt.minimize(self.static_loss, self.log_pitches)
+        self.opt.minimize(self.loss, self.log_pitches)
 
     def set_all_curves(self, c):
         self.curves.assign([c for _ in range(self.dimensions)])

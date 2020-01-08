@@ -45,12 +45,11 @@ class Minimizer(tf.Module):
     
     def minimize_logged(self, log=False):
         self.step.assign(0)
+        self.reinitialize_weights()
         if log:
             self.writers = [self.timestamped_writer(var='/main')]
             for idx in range(self.dimensions):
                 self.writers.append(self.timestamped_writer(var=("/pitch{}".format(idx+1))))
-        # Since Adagrad maintains state, we need to reset it at the start of each call to minimize()
-        self.opt = tf.optimizers.Adadelta(learning_rate=self.learning_rate)
         if log:
             self.write_values()
         while self.stopping_op() and self.step < self.max_iters:

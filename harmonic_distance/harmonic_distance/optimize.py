@@ -82,11 +82,11 @@ class Minimizer(tf.Module):
         return tf.summary.create_file_writer('logs/fit/' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + var)
 
     def write_values(self):
-        current_loss = self.loss(self.log_pitches)
+        current_loss = self.loss()
         with self.writers[0].as_default():
             tf.summary.scalar("loss", tf.reduce_mean(current_loss, axis=-1), step=self.step)
             with tf.GradientTape() as g:
-                dz_dv = g.gradient(self.loss(self.log_pitches), self.log_pitches)
+                dz_dv = g.gradient(self.loss, self.log_pitches)
             norms = tf.nn.l2_loss(dz_dv)
             tf.summary.scalar("loss-norm", norms, step=self.step)
         for idx, writer in enumerate(self.writers[1:]):
@@ -106,6 +106,6 @@ class Minimizer(tf.Module):
         converged. 
         """
         with tf.GradientTape() as g:
-            dz_dv = g.gradient(self.loss(self.log_pitches), self.log_pitches)
+            dz_dv = g.gradient(self.loss, self.log_pitches)
         norms = tf.nn.l2_loss(dz_dv)
         return norms >= self.convergence_threshold

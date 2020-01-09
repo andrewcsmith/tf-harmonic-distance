@@ -9,14 +9,20 @@ import harmonic_distance as hd
 import numpy as np
 
 def test_to_ratio_single():
-    vector = np.array([-1., 1., 0.])
-    exp = np.array([[3., 2.]])
+    vector = np.array([[[-1., 1., 0.]]])
+    exp = np.array([[[3., 2.]]])
     res = hd.vectors.to_ratio(vector)
     np.testing.assert_array_equal(exp, res)
 
 def test_to_ratio_batch():
-    vectors = np.array([[-1., 1., 0.], [-2., 0., 1.]])
-    exp = np.array([[3., 2.], [5., 4.]])
+    vectors = np.array([[[-1., 1., 0.], [-2., 0., 1.]]])
+    exp = np.array([[[3., 2.], [5., 4.]]])
+    res = hd.vectors.to_ratio(vectors)
+    np.testing.assert_array_equal(exp, res)
+
+def test_to_ratio_2d_2b():
+    vectors = np.array([[[-1., 1., 0.], [-2., 0., 1.]], [[2., -1., 0.], [1., 1., -1.]]])
+    exp = np.array([[[3., 2.], [5., 4.]], [[4., 3.], [6., 5.]]])
     res = hd.vectors.to_ratio(vectors)
     np.testing.assert_array_equal(exp, res)
 

@@ -71,15 +71,13 @@ def sorted_from_log(log_pitches, vectors, n_returned=1):
     return tf.gather(vectors, sorted_vectors[:, :n_returned], axis=0)
 
 def to_ratio(vector):
-    if len(vector.shape) < 2:
-        vector = vector[None, :]
     primes = PRIMES[:vector.shape[-1]]
     num = np.where(vector > 0, vector, np.zeros_like(primes))
     den = np.where(vector < 0, vector, np.zeros_like(primes))
-    return np.hstack([
-        np.product(np.power(primes, num[:, None]), axis=-1),
-        np.product(np.power(primes, np.abs(den[:, None])), axis=-1)
-    ])
+    return np.stack([
+        np.product(np.power(primes, num), axis=-1),
+        np.product(np.power(primes, np.abs(den)), axis=-1)
+    ], -1)
 
 class VectorSpace(tf.Module):
     def __init__(self, *args, **kwargs):

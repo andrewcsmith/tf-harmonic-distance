@@ -21,11 +21,7 @@ def pd_graph(vectors):
     return log2_graph(float_ratio)
 
 def space_graph(n_primes, n_degrees, bounds=None, name=None):
-    vectors = permutations(tf.range(-n_degrees, n_degrees+1, dtype=tf.float64), times=n_primes, name=name)
-    if bounds is not None:
-        return restrict_bounds(tf.cast(vectors, tf.float64), bounds)
-    else:
-        return vectors
+    return space_graph_altered_permutations(np.full([n_primes], n_degrees), bounds=bounds, name=name)
 
 def restrict_bounds(vectors, bounds):
     pitch_distances = pd_graph(vectors)

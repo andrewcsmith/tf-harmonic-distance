@@ -2,10 +2,8 @@ import tensorflow as tf
 import itertools
 import numpy as np
 from . import PRIMES
-from .utilities import *
-from .vectors import *
-
-from tensorflow.python import debug as tf_debug
+from .utilities import log2_graph, E
+from .vectors import get_bases, scales_graph
 
 def exploded_hd_graph(vecs):
     n_primes = vecs.shape[-1]

@@ -61,8 +61,8 @@ def scales_graph(log_pitches, vectors, c=0.05, bounds=None, coeff=E):
 
 def closest_from_log(log_pitches, vectors):
     log_vectors = pd_graph(vectors)
-    mins = tf.argmin(tf.abs(log_vectors - log_pitches), axis=1)
-    return tf.map_fn(lambda m: vectors[m, :], mins, dtype=tf.float64)
+    mins = tf.argmin(tf.abs(log_vectors[:, None, None] - log_pitches[None, :]), axis=0)
+    return tf.gather(vectors, mins, axis=0)
 
 def sorted_from_log(log_pitches, vectors, n_returned=1):
     log_vectors = pd_graph(vectors)

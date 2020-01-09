@@ -40,7 +40,7 @@ def space_graph_altered_permutations(limits, bounds=None, name=None):
     if bounds is not None:  
         return restrict_bounds(tf.cast(vectors, tf.float64), bounds)
     else:
-        return vectors
+        return tf.cast(vectors, tf.float64)
 
 def scales_graph(log_pitches, vectors, c=0.05, bounds=None, coeff=E):
     """

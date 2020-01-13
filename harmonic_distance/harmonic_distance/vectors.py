@@ -85,6 +85,11 @@ class VectorSpace(tf.Module):
         mins = tf.argmin(tf.abs(self.pds[:, None] - log_pitches[None, :]), axis=0)
         return tf.gather(self.vectors, mins, axis=0)
 
+    def unique_ratios(self, log_pitches):
+        ratios = to_ratio(self.closest_from_log(log_pitches))
+        unique = np.log2(np.unique(ratios[:, :, 0] / ratios[:, :, 1]))
+        return to_ratio(self.closest_from_log(unique))
+
     def get_perms(self, prime_limits=PRIME_LIMITS, pd_bounds=PD_BOUNDS, hd_limit=HD_LIMIT, dimensions=DIMS):
         vectors = space_graph_altered_permutations(prime_limits, bounds=pd_bounds)
         vectors_hds = tenney.hd_aggregate_graph(tf.cast(vectors[:, None, :], tf.float64))

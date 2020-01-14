@@ -56,7 +56,7 @@ def test_closest_from_log_2d_2b():
 
 def test_vectorspace_closest_from_log_2d_2b():
     log_pitches = np.array([[702., 386.], [498., 315.]]) / 1200.0
-    vs = hd.vectors.VectorSpace(prime_limits=[3, 2, 1])
+    vs = hd.vectors.VectorSpace(prime_limits=[3, 2, 1], dimensions=2)
     exp = np.array([[[-1., 1., 0.], [-2., 0., 1.]], [[2., -1., 0.], [1., 1., -1.]]])
     res = vs.closest_from_log(log_pitches)
     np.testing.assert_array_equal(exp, res)

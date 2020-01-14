@@ -10,7 +10,7 @@ def parabolic_loss_function(pds, hds, log_pitches, curves=None):
     hds: Aggregate harmonic distance values of each vector in the space
     log_pitches: The set of pitches to evaluate
     """
-    distances = reduce_parabola(pds[:, None] - log_pitches, axis=len(log_pitches.shape), curves=curves)
+    distances = reduce_parabola(pds[:, None] - log_pitches, axis=-1, curves=curves)
     scaled = ((2.0 ** hds)[:, None] * distances) + hds[:, None]
     return tf.reduce_min(scaled, axis=0)
 

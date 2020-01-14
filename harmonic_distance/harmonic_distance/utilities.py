@@ -18,12 +18,10 @@ def reduce_euclid(coords, axis=1):
     return out
 
 def reduce_parabola(coords, axis=1, curves=None):
-    out = tf.square(coords)
+    out = tf.matmul(coords, tf.transpose(coords))
     if curves is None:
         curves = tf.ones_like(coords, dtype=tf.float64)
-    out = out / curves
-    out = tf.reduce_sum(out, axis)
-    return out
+    return out / curves
 
 def combinatorial_contour(vec): 
     combos = np.array(list(itertools.combinations(vec, 2)))

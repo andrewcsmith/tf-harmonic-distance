@@ -83,8 +83,9 @@ class VectorSpace(tf.Module):
         self.two_hds = tf.pow(2.0, self.hds)
     
     def closest_from_log(self, log_pitches):
-        mins = tf.argmin(tf.abs(self.pds[:, None] - log_pitches[None, :]), axis=0)
-        return tf.gather(self.vectors, mins, axis=0)
+        diffs = tf.abs(self.pds[:, None] - log_pitches[None, :])
+        mins = tf.argmin(tf.reduce_sum(diffs, axis=-1), axis=0)
+        return tf.gather(self.perms, mins, axis=0)
 
     def unique_ratios(self, log_pitches):
         ratios = to_ratio(self.closest_from_log(log_pitches))

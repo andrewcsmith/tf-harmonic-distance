@@ -2,7 +2,7 @@ import tensorflow as tf
 import numpy as np
 from . import PRIMES
 from . import tenney
-from .utilities import log2_graph, E, get_bases, parabolic_scale
+from .utilities import log2_graph, E, get_bases, parabolic_scale, reduce_parabola
 from .cartesian import permutations
 
 # Create default prime limits for ease of use
@@ -80,6 +80,7 @@ class VectorSpace(tf.Module):
         self.perms = tf.Variable(self.get_perms(**kwargs))
         self.hds = tf.Variable(tenney.hd_aggregate_graph(self.perms))
         self.pds = tf.Variable(tenney.pd_aggregate_graph(self.perms))
+        self.two_hds = tf.pow(2.0, self.hds)
     
     def closest_from_log(self, log_pitches):
         mins = tf.argmin(tf.abs(self.pds[:, None] - log_pitches[None, :]), axis=0)
@@ -89,6 +90,12 @@ class VectorSpace(tf.Module):
         ratios = to_ratio(self.closest_from_log(log_pitches))
         unique = np.log2(np.unique(ratios[:, :, 0] / ratios[:, :, 1]))
         return to_ratio(self.closest_from_log(unique))
+    
+    @tf.function
+    def parabolic_loss_function(self, log_pitches, curves=None):
+        distances = reduce_parabola(self.pds[:, None] - log_pitches, axis=-1, curves=curves)
+        scaled = self.two_hds[:, None] * distances + self.hds[:, None]
+        return tf.reduce_min(scaled, axis=0)
 
     def get_perms(self, prime_limits=PRIME_LIMITS, pd_bounds=PD_BOUNDS, hd_limit=HD_LIMIT, dimensions=DIMS):
         vectors = space_graph_altered_permutations(prime_limits, bounds=pd_bounds)

@@ -96,7 +96,7 @@ class Minimizer(tf.Module):
 
     @tf.function
     def loss(self):
-        return parabolic_loss_function(self.vs.pds, self.vs.hds, self.log_pitches, curves=self.curves)
+        return self.vs.parabolic_loss_function(self.log_pitches, curves=self.curves)
             
     @tf.function
     def stopping_op(self):

@@ -27,11 +27,11 @@ def test_loss_function_triad_2d():
     np.testing.assert_almost_equal(exp, res)
 
 def test_parabolic_loss_function_1d():
-    log_pitches = np.log2([1.0, 1.5, 2.0, 3.0, 4.0])
+    log_pitches = np.log2([[[1.0], [1.5], [2.0], [3.0], [4.0]]])
     vs = hd.vectors.VectorSpace(prime_limits=[3, 1], dimensions=1)
     @tf.function
-    def loss(x, c=0.01):
-        return hd.optimize.parabolic_loss_function(vs.pds, vs.hds, x, curves=(0.01))
+    def loss(x):
+        return hd.optimize.parabolic_loss_function(vs.pds, vs.hds, x, curves=[0.01])
     exp = np.log2([1.0, 6, 2, 3, 4])
     res = loss(log_pitches)
     np.testing.assert_almost_equal(exp, res)

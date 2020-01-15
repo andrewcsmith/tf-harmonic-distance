@@ -4,6 +4,7 @@ import datetime
 from .utilities import reduce_parabola, log2_graph
 from .vectors import VectorSpace
 
+@tf.function
 def parabolic_loss_function(pds, hds, log_pitches, curves=None):
     """
     pds: Pitch distance coordinate values of each vector in the space

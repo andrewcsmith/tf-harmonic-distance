@@ -10,6 +10,10 @@ import numpy as np
 
 FIFTH = np.array([[-1.0, 1.0, 0.0]])
 FOURTH = np.array([[2.0, -1.0, 0.0]])
+UNISON_FIFTH = np.array([
+    [0.0, 0.0, 0.0],
+    [-1.0, 1.0, 0.0]
+    ])
 TRIAD = np.array([
         [-2.0, 0.0, 1.0],
         [-1.0, 1.0, 0.0]
@@ -34,6 +38,13 @@ def test_hd_root_valence():
     @tf.function
     def res():
         return hd.hd_root_valence(FOURTH)
+    np.testing.assert_almost_equal(exp, res())
+
+def test_harmonic_distance_aggregate_2d():
+    exp = np.array([2.584962500721156])
+    @tf.function
+    def res():
+        return hd.hd_aggregate_graph(UNISON_FIFTH[None, :, :])
     np.testing.assert_almost_equal(exp, res())
 
 def test_harmonic_distance_aggregate():

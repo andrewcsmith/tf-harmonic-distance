@@ -35,7 +35,7 @@ def hd_aggregate_graph(aggregates):
         hd = tf.reduce_sum(hd, axis=0)
         return hd
     hds = exploded_hd_graph(aggregates)
-    return tf.map_fn(get_hd_sum, hds)
+    return tf.map_fn(get_hd_sum, hds) / aggregates.shape[1]
 
 def pd_aggregate_graph(aggregates):
     primes = tf.constant(PRIMES[:aggregates.shape[-1]], dtype=tf.float64)

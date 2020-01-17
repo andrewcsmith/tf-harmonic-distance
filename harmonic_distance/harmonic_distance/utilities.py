@@ -8,6 +8,22 @@ E = tf.exp(tf.constant(1.0, dtype=tf.float64))
 def log2_graph(val):
     return tf.math.log(val) / LOG_2
 
+@tf.function
+def transform_to_unit_circle(xys):
+    """
+    Transform a batch of xy-coordinates to the unit circle
+    """
+    # Calculate theta in radians
+    theta = tf.math.atan(xys[:, 1] / xys[:, 0])
+    r = tf.sqrt(tf.reduce_sum(tf.math.square(xys), 1))
+    polar_xs = xys[:, 0] * tf.math.cos(theta)
+    polar_ys = xys[:, 1] * tf.math.sin(theta)
+    polar_xys = tf.stack((polar_xs, polar_ys), 1)
+    r = tf.sqrt(r * tf.reduce_max(polar_xys, 1))
+    new_x = tf.math.cos(theta) * r
+    new_y = tf.math.sin(theta) * r
+    return tf.stack((new_x, new_y), 1)
+
 def parabolic_scale(diffs, c, coeff=E):
     return tf.pow(coeff, -1.0 * (diffs**2 / (2.0 * c**2)))
 

@@ -48,7 +48,7 @@ def test_harmonic_distance_aggregate_2d():
     np.testing.assert_almost_equal(exp, res())
 
 def test_harmonic_distance_aggregate():
-    exp = np.array([11.813781191217037])
+    exp = np.array([5.9068906])
     @tf.function
     def res():
         return hd.hd_aggregate_graph(TRIAD[None, :, :])

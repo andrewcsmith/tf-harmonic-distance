@@ -15,6 +15,8 @@ def transform_to_unit_circle(xys):
     """
     # Calculate theta in radians
     theta = tf.math.atan(xys[:, 1] / xys[:, 0])
+    # Guard against edge case [0.0, 0.0]
+    theta = tf.where(tf.math.is_nan(theta), tf.constant(0.0, dtype=tf.float64), theta)
     r = tf.sqrt(tf.reduce_sum(tf.math.square(xys), 1))
     polar_xs = xys[:, 0] * tf.math.cos(theta)
     polar_ys = xys[:, 1] * tf.math.sin(theta)

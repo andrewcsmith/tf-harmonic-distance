@@ -12,6 +12,7 @@ SQRT_OF_HALF = np.sqrt(0.5)
 
 def test_transform_to_unit_circle():
     pds = np.array([
+        [0.0, 0.0],
         [1.0, 1.0], 
         [0.0, 1.0], 
         [1.0, 0.0], 
@@ -20,6 +21,7 @@ def test_transform_to_unit_circle():
         [0.0, 0.5]
         ])
     exp = np.array([
+        [0.0, 0.0],
         [SQRT_OF_HALF, SQRT_OF_HALF], 
         [0.0, 1.0], 
         [1.0, 0.0], 

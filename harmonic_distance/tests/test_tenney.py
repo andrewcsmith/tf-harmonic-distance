@@ -72,3 +72,15 @@ def test_scaled_hd_graph_2d():
     def res():
         return hd.scaled_hd_graph(log_pitches, vectors, c=0.1)
     np.testing.assert_almost_equal(exp, res())
+
+def test_rationalize_within_tolerance():
+    # Testing against Tenney's 72-TET pitch class 12
+    log_pitches = tf.constant(np.array([[12]]) / 72, dtype=tf.float64)
+    # Our tolerance window is a strict 0.5 on either side of the central pitch;
+    # about 8 cents
+    t = 0.5 / 72.0
+    # We expect the value 9/8
+    exp = np.array([[-3., 2., 0., 0.]])
+    vs = hd.vectors.VectorSpace(prime_limits=[6, 4, 3, 3], hd_limit=11.0, pd_bounds=(0.0, 1.0))
+    res = hd.tenney.rationalize_within_tolerance(log_pitches, vs.vectors, t)
+    np.testing.assert_array_equal(exp, res.numpy())

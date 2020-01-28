@@ -3,7 +3,7 @@ import itertools
 import numpy as np
 from . import PRIMES
 from .utilities import log2_graph, E
-from .vectors import get_bases, scales_graph
+from .vectors import get_bases, scales_graph, pd_graph
 
 def exploded_hd_graph(vecs):
     n_primes = vecs.shape[-1]
@@ -53,3 +53,18 @@ def scaled_hd_graph(log_pitches, vectors, c=0.05, coeff=E):
     hds = tf.reduce_mean(hds, axis=1)
     hds = hds - 1.0
     return hds
+
+def rationalize_within_tolerance(log_pitches, vectors, t=0.01):
+    """
+    Strict rationalization within a window of tolerance. Taken from "About
+    Changes," and also from the article "Harmonic Series Aggregates" by Tenney.
+    """
+    log_vectors = pd_graph(vectors)
+    diffs = tf.abs(log_vectors - log_pitches)
+    out = []
+    for d in diffs <= t:
+        options = vectors[d]
+        options_hds = hd_graph(options)
+        winner_idx = tf.argmin(options_hds, axis=0)
+        out.append(options[winner_idx])
+    return out

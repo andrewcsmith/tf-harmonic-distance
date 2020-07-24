@@ -31,3 +31,13 @@ def test_transform_to_unit_circle():
         ])
     res = hd.utilities.transform_to_unit_circle(pds)
     np.testing.assert_almost_equal(exp, res)
+
+def test_get_bases_2():
+    exp = np.array([[1.0]])
+    res = hd.utilities.get_bases(2)
+    np.testing.assert_almost_equal(exp, res)
+
+def test_get_bases_3():
+    exp = np.array([[1.0, 0.0, -1.0], [0.0, 1.0, 1.0]])
+    res = hd.utilities.get_bases(3)
+    np.testing.assert_almost_equal(exp, res)

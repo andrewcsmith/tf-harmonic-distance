@@ -40,6 +40,13 @@ def test_hd_root_valence():
         return hd.hd_root_valence(FOURTH)
     np.testing.assert_almost_equal(exp, res())
 
+def test_harmonic_distance_aggregate_1d():
+    exp = np.array([2.584962500721156])
+    @tf.function
+    def res():
+        return hd.hd_aggregate_graph(FIFTH[None, :, :])
+    np.testing.assert_almost_equal(exp, res())
+
 def test_harmonic_distance_aggregate_2d():
     exp = np.array([2.584962500721156])
     @tf.function
@@ -83,4 +90,4 @@ def test_rationalize_within_tolerance():
     exp = np.array([[-3., 2., 0., 0.]])
     vs = hd.vectors.VectorSpace(prime_limits=[6, 4, 3, 3], hd_limit=11.0, pd_bounds=(0.0, 1.0))
     res = hd.tenney.rationalize_within_tolerance(log_pitches, vs.vectors, t)
-    np.testing.assert_array_equal(exp, res.numpy())
+    np.testing.assert_array_equal(exp, res)

@@ -92,12 +92,6 @@ class VectorSpace(tf.Module):
         unique = np.log2(np.unique(ratios[:, :, 0] / ratios[:, :, 1]))
         return to_ratio(self.closest_from_log(unique))
     
-    @tf.function
-    def parabolic_loss_function(self, log_pitches, curves=None):
-        distances = reduce_parabola(self.pds[:, None] - log_pitches, axis=-1, curves=curves)
-        scaled = self.two_hds[:, None] * distances + self.hds[:, None]
-        return tf.reduce_min(scaled, axis=0)
-
     def get_perms(self, prime_limits=PRIME_LIMITS, pd_bounds=PD_BOUNDS, hd_limit=HD_LIMIT, dimensions=DIMS):
         vectors = space_graph_altered_permutations(prime_limits, bounds=pd_bounds)
         vectors_hds = tenney.hd_aggregate_graph(tf.cast(vectors[:, None, :], tf.float64))

@@ -16,7 +16,7 @@ def parabolic_loss_function(pds, hds, log_pitches, curves=None):
     return tf.reduce_min(scaled, axis=0)
 
 class Minimizer(tf.Module):
-    def __init__(self, dimensions=1, learning_rate=1.0e-2, max_iters=1000, convergence_threshold=1.0e-5, c=0.01, batch_size=1, **kwargs):
+    def __init__(self, dimensions=1, learning_rate=1.0e-2, max_iters=1000, convergence_threshold=1.0e-5, c=0.01, batch_size=1, callbacks=None, name=None, vs=None, **kwargs):
         """
         dimensions: Dimensionality of the space. This is only finding the
         minimum of a single interval.
@@ -29,28 +29,39 @@ class Minimizer(tf.Module):
         c: The "curve" of the parabola around each possible pitch. A higher
         value will lead to fewer possible pitches.
         """
+        super().__init__(name=name)
         self.dimensions = dimensions
-        self.learning_rate = tf.Variable(learning_rate)
+        self.learning_rate = learning_rate # tf.Variable(learning_rate)
         self.max_iters = max_iters
         self.convergence_threshold = convergence_threshold
-        self.curves = tf.Variable(tf.ones([dimensions], dtype=tf.float64))
+        self.curves = tf.Variable(tf.ones([dimensions], dtype=tf.float64), trainable=False)
         self.set_all_curves(c)
-        self.vs = VectorSpace(dimensions=dimensions, **kwargs)
-        self.log_pitches = tf.Variable(tf.zeros(([batch_size, dimensions]), dtype=tf.float64), dtype=tf.float64)
-        self.step = tf.Variable(0, dtype=tf.int64)
+        self.vs = vs if vs is not None else VectorSpace(dimensions=dimensions, **kwargs)
+        self.log_pitches = tf.Variable(tf.zeros([batch_size, dimensions], dtype=tf.float64), dtype=tf.float64, name="log_pitches")
+        self.step = tf.Variable(0, trainable=False, dtype=tf.int64)
         self.opt = tf.optimizers.Adadelta(learning_rate=self.learning_rate)
-        self.opt.minimize(self.loss, self.log_pitches)
+        self.opt.build([self.log_pitches])
+        self.callbacks = tf.keras.callbacks.CallbackList(callbacks=callbacks)
+        self.callbacks.set_model(self)
+        self.opt_minimize()
 
     def set_all_curves(self, c):
         self.curves.assign([c for _ in range(self.dimensions)])
+    
+    @tf.function
+    def opt_minimize(self):
+        with tf.GradientTape(persistent=False) as g:
+            dz_dv = g.gradient(self.loss(), self.log_pitches)
+        self.opt.apply([dz_dv])
 
     @tf.function
     def minimize(self):
         self.step.assign(0)
         self.reinitialize_weights()
         while self.stopping_op() and self.step < self.max_iters:
-            self.opt.minimize(self.loss, self.log_pitches)
+            self.opt_minimize()
             self.step.assign_add(1)
+            self.callbacks.on_train_batch_end(self.step)
     
     @tf.function
     def reinitialize_weights(self):
@@ -67,8 +78,9 @@ class Minimizer(tf.Module):
         if log:
             self.write_values()
         while self.stopping_op() and self.step < self.max_iters:
-            self.opt.minimize(self.loss, self.log_pitches)
+            self.opt_minimize()
             self.step.assign_add(1)
+            self.callbacks.on_train_batch_end(self.step)
             if log:
                 self.write_values()
         if log:
@@ -97,7 +109,7 @@ class Minimizer(tf.Module):
 
     @tf.function
     def loss(self):
-        return self.vs.parabolic_loss_function(self.log_pitches, curves=self.curves)
+        return parabolic_loss_function(self.vs.pds, self.vs.hds, self.log_pitches, curves=self.curves)
             
     @tf.function
     def stopping_op(self):

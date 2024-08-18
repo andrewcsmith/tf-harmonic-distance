@@ -77,11 +77,13 @@ def to_ratio(vector):
 
 class VectorSpace(tf.Module):
     def __init__(self, *args, **kwargs):
+        self.vectors = tf.Variable(self.get_vectors(**kwargs))
         self.perms = tf.Variable(self.get_perms(**kwargs))
         self.hds = tf.Variable(tenney.hd_aggregate_graph(self.perms))
         self.pds = tf.Variable(tenney.pd_aggregate_graph(self.perms))
         self.two_hds = tf.pow(2.0, self.hds)
     
+    @tf.function
     def closest_from_log(self, log_pitches):
         diffs = tf.abs(self.pds[:, None] - log_pitches[None, :])
         mins = tf.argmin(tf.reduce_sum(diffs, axis=-1), axis=0)
@@ -92,8 +94,10 @@ class VectorSpace(tf.Module):
         unique = np.log2(np.unique(ratios[:, :, 0] / ratios[:, :, 1]))
         return to_ratio(self.closest_from_log(unique))
     
-    def get_perms(self, prime_limits=PRIME_LIMITS, pd_bounds=PD_BOUNDS, hd_limit=HD_LIMIT, dimensions=DIMS):
+    def get_vectors(self, prime_limits=PRIME_LIMITS, pd_bounds=PD_BOUNDS, hd_limit=HD_LIMIT, **kwargs):
         vectors = space_graph_altered_permutations(prime_limits, bounds=pd_bounds)
         vectors_hds = tenney.hd_aggregate_graph(tf.cast(vectors[:, None, :], tf.float64))
-        self.vectors = tf.boolean_mask(vectors, vectors_hds < hd_limit)
+        return tf.boolean_mask(vectors, vectors_hds < hd_limit)
+    
+    def get_perms(self, dimensions=DIMS, **kwargs):
         return permutations(self.vectors, times=dimensions)

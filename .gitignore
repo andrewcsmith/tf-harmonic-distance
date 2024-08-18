@@ -6,3 +6,5 @@
 logs/
 .ipynb_checkpoints/
 *~
+harmonic_distance/build/
+harmonic_distance/dist/

@@ -65,8 +65,9 @@ class Minimizer(tf.Module):
     
     @tf.function
     def reinitialize_weights(self):
-        for w in self.opt.weights[1:]:
-            w.assign(tf.zeros_like(w))
+        pass
+        # weights = self.opt.get_weights
+        # self.opt.set_weights(tf.zeros_like(self.opt.variables, dtype=tf.float64))
     
     def minimize_logged(self, log=False):
         self.step.assign(0)

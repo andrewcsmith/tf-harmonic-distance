@@ -71,8 +71,8 @@ def to_ratio(vector):
     num = np.where(vector > 0, vector, np.zeros_like(primes))
     den = np.where(vector < 0, vector, np.zeros_like(primes))
     return np.stack([
-        np.product(np.power(primes, num), axis=-1),
-        np.product(np.power(primes, np.abs(den)), axis=-1)
+        np.prod(np.power(primes, num), axis=-1),
+        np.prod(np.power(primes, np.abs(den)), axis=-1)
     ], -1)
 
 class VectorSpace(tf.Module):

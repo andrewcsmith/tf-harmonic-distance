@@ -63,3 +63,36 @@ def test_minimizer_2d():
     minimizer.minimize()
     exp = np.log2([[5/4, 3/2]])
     np.testing.assert_almost_equal(exp, minimizer.log_pitches.numpy(), 3)
+
+def test_minimizer_2d_batched_active_rows():
+    minimizer = hd.optimize.Minimizer(
+        dimensions=2,
+        prime_limits=[3, 2, 2, 1],
+        batch_size=3,
+        convergence_threshold=1.0e-4,
+    )
+    inactive = [11/12, 1/12]
+    minimizer.log_pitches.assign([
+        [4/12, 7/12],
+        [5/12, 7/12],
+        inactive,
+    ])
+    minimizer.set_active_count(2)
+    minimizer.minimize()
+    active_exp = np.log2([
+        [5/4, 3/2],
+        [4/3, 3/2],
+    ])
+    np.testing.assert_almost_equal(active_exp, minimizer.log_pitches.numpy()[:2], 3)
+    np.testing.assert_almost_equal([inactive], minimizer.log_pitches.numpy()[2:], 12)
+
+def test_minimizer_stopping_op_ignores_inactive_rows():
+    minimizer = hd.optimize.Minimizer(
+        dimensions=1,
+        prime_limits=[3, 1],
+        batch_size=2,
+        convergence_threshold=1.0e-4,
+    )
+    minimizer.log_pitches.assign(np.log2([[1.0], [1.4]]))
+    minimizer.set_active_count(1)
+    assert not minimizer.stopping_op().numpy()

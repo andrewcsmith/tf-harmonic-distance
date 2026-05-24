@@ -38,6 +38,7 @@ class Minimizer(tf.Module):
         self.set_all_curves(c)
         self.vs = vs if vs is not None else VectorSpace(dimensions=dimensions, **kwargs)
         self.log_pitches = tf.Variable(tf.zeros([batch_size, dimensions], dtype=tf.float64), dtype=tf.float64, name="log_pitches")
+        self.active_mask = tf.Variable(tf.ones([batch_size], dtype=tf.float64), trainable=False, name="active_mask")
         self.step = tf.Variable(0, trainable=False, dtype=tf.int64)
         self.opt = tf.optimizers.Adadelta(learning_rate=self.learning_rate)
         self.opt.build([self.log_pitches])
@@ -47,11 +48,22 @@ class Minimizer(tf.Module):
 
     def set_all_curves(self, c):
         self.curves.assign([c for _ in range(self.dimensions)])
+
+    def set_active_count(self, active_count):
+        batch_size = self.log_pitches.shape[0]
+        if active_count < 0 or active_count > batch_size:
+            raise ValueError(f"active_count must be between 0 and {batch_size}; got {active_count}")
+        mask = tf.concat([
+            tf.ones([active_count], dtype=tf.float64),
+            tf.zeros([batch_size - active_count], dtype=tf.float64),
+        ], axis=0)
+        self.active_mask.assign(mask)
     
     @tf.function
     def opt_minimize(self):
         with tf.GradientTape(persistent=False) as g:
             dz_dv = g.gradient(self.loss(), self.log_pitches)
+        dz_dv = dz_dv * self.active_mask[:, None]
         self.opt.apply([dz_dv])
 
     @tf.function
@@ -121,5 +133,6 @@ class Minimizer(tf.Module):
         """
         with tf.GradientTape() as g:
             dz_dv = g.gradient(self.loss(), self.log_pitches)
+        dz_dv = dz_dv * self.active_mask[:, None]
         norms = tf.nn.l2_loss(dz_dv)
         return norms >= self.convergence_threshold

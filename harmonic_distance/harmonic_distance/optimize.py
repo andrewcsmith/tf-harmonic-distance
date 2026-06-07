@@ -42,6 +42,7 @@ class Minimizer(tf.Module):
         self.step = tf.Variable(0, trainable=False, dtype=tf.int64)
         self.opt = tf.optimizers.Adadelta(learning_rate=self.learning_rate)
         self.opt.build([self.log_pitches])
+        self.snapshot_optimizer_state()
         self.callbacks = tf.keras.callbacks.CallbackList(callbacks=callbacks)
         self.callbacks.set_model(self)
         self.opt_minimize()
@@ -69,21 +70,30 @@ class Minimizer(tf.Module):
     @tf.function
     def minimize(self):
         self.step.assign(0)
-        self.reinitialize_weights()
+        self.reinitialize_optimizer_state()
         while self.stopping_op() and self.step < self.max_iters:
             self.opt_minimize()
             self.step.assign_add(1)
             self.callbacks.on_train_batch_end(self.step)
-    
+
+    def snapshot_optimizer_state(self):
+        self.initial_optimizer_state = [
+            tf.Variable(tf.identity(var), trainable=False)
+            for var in self.opt.variables
+        ]
+
+    @tf.function
+    def reinitialize_optimizer_state(self):
+        for var, initial_value in zip(self.opt.variables, self.initial_optimizer_state):
+            var.assign(initial_value)
+
     @tf.function
     def reinitialize_weights(self):
-        pass
-        # weights = self.opt.get_weights
-        # self.opt.set_weights(tf.zeros_like(self.opt.variables, dtype=tf.float64))
+        self.reinitialize_optimizer_state()
     
     def minimize_logged(self, log=False):
         self.step.assign(0)
-        self.reinitialize_weights()
+        self.reinitialize_optimizer_state()
         if log:
             self.writers = [self.timestamped_writer(var='/main')]
             for idx in range(self.dimensions):

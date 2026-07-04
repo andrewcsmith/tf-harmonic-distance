@@ -50,6 +50,37 @@ def test_minimizer_loss_function_2d_b2():
     res = minimizer.loss()
     np.testing.assert_almost_equal(exp, res)
 
+def test_vectorspace_batched_loss_matches_materialized():
+    log_pitches = np.log2([[5/4, 3/2], [4/3, 3/2]])
+    materialized = hd.vectors.VectorSpace(prime_limits=[3, 2, 1], dimensions=2, materialize=True)
+    batched = hd.vectors.VectorSpace(
+        prime_limits=[3, 2, 1],
+        dimensions=2,
+        batch_size=13,
+        materialize=False,
+    )
+    exp = hd.optimize.parabolic_loss_function(
+        materialized.pds,
+        materialized.hds,
+        log_pitches,
+        curves=(0.001, 0.001),
+    )
+    res = batched.loss(log_pitches, curves=(0.001, 0.001))
+    np.testing.assert_allclose(exp, res)
+
+def test_minimizer_uses_batched_vectorspace_loss():
+    vs = hd.vectors.VectorSpace(
+        prime_limits=[3, 2, 1],
+        dimensions=2,
+        batch_size=13,
+        materialize=False,
+    )
+    minimizer = hd.optimize.Minimizer(dimensions=2, batch_size=2, c=0.001, vs=vs)
+    minimizer.log_pitches.assign(np.log2([[5/4, 3/2], [4/3, 3/2]]))
+    exp = np.array([11.813781191217037, 12.339850002884624]) / 2.0
+    res = minimizer.loss()
+    np.testing.assert_almost_equal(exp, res)
+
 def test_minimizer_1d():
     minimizer = hd.optimize.Minimizer(dimensions=1, prime_limits=[3, 2, 2, 1], convergence_threshold=1.0e-4)
     minimizer.log_pitches.assign([[4/12]])

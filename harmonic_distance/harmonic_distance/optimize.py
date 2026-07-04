@@ -132,6 +132,8 @@ class Minimizer(tf.Module):
 
     @tf.function
     def loss(self):
+        if hasattr(self.vs, "loss"):
+            return self.vs.loss(self.log_pitches, curves=self.curves)
         return parabolic_loss_function(self.vs.pds, self.vs.hds, self.log_pitches, curves=self.curves)
             
     @tf.function

@@ -69,12 +69,12 @@ def test_vectorspace_closest_from_log_1d():
     np.testing.assert_array_equal(exp, res)
 
 def test_vectorspace_batched_summaries_match_materialized():
-    materialized = hd.vectors.VectorSpace(prime_limits=[3, 1], dimensions=2, materialize=True)
+    materialized = hd.vectors.VectorSpace(prime_limits=[3, 1], dimensions=2, materialize="full")
     batched = hd.vectors.VectorSpace(
         prime_limits=[3, 1],
         dimensions=2,
         batch_size=7,
-        materialize=False,
+        materialize="none",
     )
     pds = []
     hds = []
@@ -85,14 +85,42 @@ def test_vectorspace_batched_summaries_match_materialized():
     np.testing.assert_allclose(materialized.pds, tf.concat(pds, axis=0))
     np.testing.assert_allclose(materialized.hds, tf.concat(hds, axis=0))
 
+def test_vectorspace_summary_materialization_matches_full():
+    full = hd.vectors.VectorSpace(prime_limits=[3, 1], dimensions=2, materialize="full")
+    summaries = hd.vectors.VectorSpace(
+        prime_limits=[3, 1],
+        dimensions=2,
+        batch_size=7,
+        materialize="summaries",
+    )
+    assert summaries.materialized
+    assert summaries.materialize_mode == "summaries"
+    assert not summaries.has_perms
+    assert not hasattr(summaries, "perms")
+    np.testing.assert_allclose(full.pds, summaries.pds)
+    np.testing.assert_allclose(full.hds, summaries.hds)
+
+def test_vectorspace_summary_materialization_batch_size_is_memory_capped():
+    vs = hd.vectors.VectorSpace(
+        prime_limits=[3, 2, 1],
+        dimensions=3,
+        batch_size=1_000_000,
+        materialize="none",
+    )
+    summary_bytes = vs.permutation_count * (vs.dimensions + 1) * np.dtype(np.float64).itemsize
+    permutation_row_bytes = vs.dimensions * vs.n_primes * np.dtype(np.float64).itemsize
+    expected = summary_bytes // permutation_row_bytes
+    assert vs.summary_materialization_batch_size() == expected
+    assert vs.summary_materialization_batch_size() < vs.batch_size
+
 def test_vectorspace_batched_closest_from_log_matches_materialized():
     log_pitches = np.array([[702., 386.], [498., 315.]]) / 1200.0
-    materialized = hd.vectors.VectorSpace(prime_limits=[3, 2, 1], dimensions=2, materialize=True)
+    materialized = hd.vectors.VectorSpace(prime_limits=[3, 2, 1], dimensions=2, materialize="full")
     batched = hd.vectors.VectorSpace(
         prime_limits=[3, 2, 1],
         dimensions=2,
         batch_size=11,
-        materialize=False,
+        materialize="none",
     )
     np.testing.assert_array_equal(materialized.closest_from_log(log_pitches), batched.closest_from_log(log_pitches))
 
@@ -104,5 +132,10 @@ def test_vectorspace_auto_can_skip_materialization():
         materialize_limit=1,
     )
     assert not vs.materialized
+    assert vs.materialize_mode == "none"
     assert not hasattr(vs, "perms")
     assert vs.permutation_count > 1
+
+def test_vectorspace_rejects_boolean_materialize():
+    with pytest.raises(ValueError, match="materialize must be"):
+        hd.vectors.VectorSpace(prime_limits=[3, 1], dimensions=1, materialize=True)

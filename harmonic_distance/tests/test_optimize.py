@@ -52,12 +52,12 @@ def test_minimizer_loss_function_2d_b2():
 
 def test_vectorspace_batched_loss_matches_materialized():
     log_pitches = np.log2([[5/4, 3/2], [4/3, 3/2]])
-    materialized = hd.vectors.VectorSpace(prime_limits=[3, 2, 1], dimensions=2, materialize=True)
+    materialized = hd.vectors.VectorSpace(prime_limits=[3, 2, 1], dimensions=2, materialize="full")
     batched = hd.vectors.VectorSpace(
         prime_limits=[3, 2, 1],
         dimensions=2,
         batch_size=13,
-        materialize=False,
+        materialize="none",
     )
     exp = hd.optimize.parabolic_loss_function(
         materialized.pds,
@@ -73,7 +73,7 @@ def test_minimizer_uses_batched_vectorspace_loss():
         prime_limits=[3, 2, 1],
         dimensions=2,
         batch_size=13,
-        materialize=False,
+        materialize="none",
     )
     minimizer = hd.optimize.Minimizer(dimensions=2, batch_size=2, c=0.001, vs=vs)
     minimizer.log_pitches.assign(np.log2([[5/4, 3/2], [4/3, 3/2]]))

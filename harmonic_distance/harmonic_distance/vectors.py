@@ -12,6 +12,7 @@ HD_LIMIT = 9.0
 DIMS = 1
 BATCH_SIZE = 65536
 MATERIALIZE_LIMIT = 1_000_000
+MATERIALIZE_MODES = ("auto", "none", "summaries", "full")
 
 def pd_graph(vectors):
     """
@@ -95,18 +96,26 @@ class VectorSpace(tf.Module):
         self.num_vectors = int(self.vectors.shape[0])
         self.n_primes = int(self.vectors.shape[-1])
         self._permutation_count = self.num_vectors ** self.dimensions
-        self.materialized = self._should_materialize(materialize)
-        if self.materialized:
+        self.materialize_mode = self._resolve_materialize_mode(materialize)
+        self.materialized = self.materialize_mode != "none"
+        self.has_perms = self.materialize_mode == "full"
+        if self.materialize_mode == "full":
             self.perms = tf.Variable(self.get_perms(dimensions=dimensions), trainable=False)
             self.hds = tf.Variable(tenney.hd_aggregate_graph(self.perms), trainable=False)
             self.pds = tf.Variable(tenney.pd_aggregate_graph(self.perms), trainable=False)
+        elif self.materialize_mode == "summaries":
+            self.pds, self.hds = self.materialize_summaries()
 
-    def _should_materialize(self, materialize):
-        if materialize == "auto":
-            return self._permutation_count <= self.materialize_limit
+    def _resolve_materialize_mode(self, materialize):
         if isinstance(materialize, bool):
-            return materialize
-        raise ValueError("materialize must be True, False, or 'auto'")
+            raise ValueError("materialize must be 'auto', 'none', 'summaries', or 'full'")
+        if materialize == "auto":
+            if self._permutation_count <= self.materialize_limit:
+                return "full"
+            return "none"
+        if materialize not in MATERIALIZE_MODES:
+            raise ValueError("materialize must be 'auto', 'none', 'summaries', or 'full'")
+        return materialize
 
     @property
     def permutation_count(self):
@@ -128,10 +137,33 @@ class VectorSpace(tf.Module):
     def summary_batch(self, start, count):
         perms = self.permutation_batch(start, count)
         return tenney.pd_aggregate_graph(perms), tenney.hd_aggregate_graph(perms)
+
+    def materialize_summaries(self):
+        pds = tf.Variable(
+            tf.zeros([self._permutation_count, self.dimensions], dtype=tf.float64),
+            trainable=False,
+        )
+        hds = tf.Variable(tf.zeros([self._permutation_count], dtype=tf.float64), trainable=False)
+        batch_size = self.summary_materialization_batch_size()
+        for start in range(0, self._permutation_count, batch_size):
+            count = min(batch_size, self._permutation_count - start)
+            chunk_pds, chunk_hds = self.summary_batch(start, count)
+            pds[start : start + count].assign(chunk_pds)
+            hds[start : start + count].assign(chunk_hds)
+        return pds, hds
+
+    def summary_materialization_batch_size(self):
+        # Keep the transient permutation tensor no larger than the final pds+hds
+        # summary cache. Concatenation can still briefly duplicate summaries.
+        summary_row_bytes = (self.dimensions + 1) * np.dtype(np.float64).itemsize
+        permutation_row_bytes = self.dimensions * self.n_primes * np.dtype(np.float64).itemsize
+        summary_total_bytes = max(1, self._permutation_count * summary_row_bytes)
+        memory_limited_batch_size = max(1, summary_total_bytes // permutation_row_bytes)
+        return int(min(self.batch_size, memory_limited_batch_size))
     
     @tf.function
     def closest_from_log(self, log_pitches):
-        if not self.materialized:
+        if not self.has_perms:
             return self._closest_from_log_batched(log_pitches)
         diffs = tf.abs(self.pds[:, None] - log_pitches[None, :])
         mins = tf.argmin(tf.reduce_sum(diffs, axis=-1), axis=0)

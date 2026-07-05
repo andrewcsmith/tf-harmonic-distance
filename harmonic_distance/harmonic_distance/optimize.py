@@ -33,7 +33,12 @@ class Minimizer(tf.Module):
         self.dimensions = dimensions
         self.learning_rate = learning_rate # tf.Variable(learning_rate)
         self.max_iters = max_iters
-        self.convergence_threshold = convergence_threshold
+        self.convergence_threshold = tf.Variable(
+            float(convergence_threshold),
+            trainable=False,
+            dtype=tf.float64,
+            name="convergence_threshold",
+        )
         self.curves = tf.Variable(tf.ones([dimensions], dtype=tf.float64), trainable=False)
         self.set_all_curves(c)
         self.vs = vs if vs is not None else VectorSpace(dimensions=dimensions, **kwargs)
@@ -45,10 +50,15 @@ class Minimizer(tf.Module):
         self.snapshot_optimizer_state()
         self.callbacks = tf.keras.callbacks.CallbackList(callbacks=callbacks)
         self.callbacks.set_model(self)
-        self.opt_minimize()
 
     def set_all_curves(self, c):
         self.curves.assign([c for _ in range(self.dimensions)])
+
+    def set_convergence_threshold(self, convergence_threshold):
+        convergence_threshold = float(convergence_threshold)
+        if convergence_threshold <= 0.0:
+            raise ValueError(f"convergence_threshold must be positive; got {convergence_threshold}")
+        self.convergence_threshold.assign(convergence_threshold)
 
     def set_active_count(self, active_count):
         batch_size = self.log_pitches.shape[0]
@@ -58,6 +68,16 @@ class Minimizer(tf.Module):
             tf.ones([active_count], dtype=tf.float64),
             tf.zeros([batch_size - active_count], dtype=tf.float64),
         ], axis=0)
+        self.set_active_mask(mask)
+
+    def set_active_mask(self, active_mask):
+        mask = tf.convert_to_tensor(active_mask, dtype=tf.float64)
+        batch_size = self.log_pitches.shape[0]
+        if mask.shape.ndims != 1:
+            raise ValueError(f"active_mask must be one-dimensional; got shape {mask.shape}")
+        if mask.shape[0] != batch_size:
+            raise ValueError(f"active_mask must have length {batch_size}; got {mask.shape[0]}")
+        mask = tf.where(mask != 0.0, tf.ones_like(mask), tf.zeros_like(mask))
         self.active_mask.assign(mask)
     
     @tf.function

@@ -8,6 +8,10 @@ if len(devices) > 0:
 import harmonic_distance as hd
 import numpy as np
 
+class ExplodingVectorSpace:
+    def loss(self, log_pitches, curves=None):
+        raise AssertionError("loss should not be evaluated during Minimizer construction")
+
 def test_parabolic_loss_function_2d():
     log_pitches = np.log2([[1.0, 1.0], [1.5, 1.0], [2.0, 1.0], [3.0, 1.0], [4.0, 1.0]])
     vs = hd.vectors.VectorSpace(prime_limits=[3, 1], dimensions=2)
@@ -42,6 +46,9 @@ def test_minimizer_loss_function_2d():
     exp = np.array([11.813781191217037]) / 2.0
     res = minimizer.loss()
     np.testing.assert_almost_equal(exp, res)
+
+def test_minimizer_init_does_not_evaluate_loss():
+    hd.optimize.Minimizer(dimensions=1, batch_size=1, vs=ExplodingVectorSpace())
 
 def test_minimizer_loss_function_2d_b2():
     minimizer = hd.optimize.Minimizer(dimensions=2, prime_limits=[3, 2, 1], batch_size=2, c=0.001)
@@ -117,6 +124,31 @@ def test_minimizer_2d_batched_active_rows():
     np.testing.assert_almost_equal(active_exp, minimizer.log_pitches.numpy()[:2], 3)
     np.testing.assert_almost_equal([inactive], minimizer.log_pitches.numpy()[2:], 12)
 
+def test_minimizer_active_mask_allows_holes():
+    minimizer = hd.optimize.Minimizer(
+        dimensions=2,
+        prime_limits=[3, 2, 2, 1],
+        batch_size=4,
+        convergence_threshold=1.0e-4,
+    )
+    inactive = [11/12, 1/12]
+    minimizer.log_pitches.assign([
+        [4/12, 7/12],
+        [5/12, 7/12],
+        inactive,
+        [8/12, 7/12],
+    ])
+    minimizer.set_active_mask([1, 1, 0, 1])
+    minimizer.minimize()
+    contiguous_exp = np.log2([
+        [5/4, 3/2],
+        [4/3, 3/2],
+    ])
+    result = minimizer.log_pitches.numpy()
+    np.testing.assert_almost_equal(contiguous_exp, result[[0, 1]], 3)
+    np.testing.assert_almost_equal([inactive], result[2:3], 12)
+    assert abs(result[3, 0] - 8/12) > 0.01
+
 def test_minimizer_stopping_op_ignores_inactive_rows():
     minimizer = hd.optimize.Minimizer(
         dimensions=1,
@@ -127,3 +159,15 @@ def test_minimizer_stopping_op_ignores_inactive_rows():
     minimizer.log_pitches.assign(np.log2([[1.0], [1.4]]))
     minimizer.set_active_count(1)
     assert not minimizer.stopping_op().numpy()
+
+def test_minimizer_convergence_threshold_can_change_after_tracing():
+    minimizer = hd.optimize.Minimizer(
+        dimensions=1,
+        prime_limits=[3, 1],
+        convergence_threshold=1.0e9,
+    )
+    minimizer.log_pitches.assign(np.log2([[1.4]]))
+    assert not minimizer.stopping_op().numpy()
+
+    minimizer.set_convergence_threshold(1.0e-30)
+    assert minimizer.stopping_op().numpy()

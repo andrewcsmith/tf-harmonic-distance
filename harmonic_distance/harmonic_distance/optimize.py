@@ -1,7 +1,7 @@
 import tensorflow as tf
 import datetime
 
-from .utilities import reduce_parabola, log2_graph
+from .utilities import reduce_parabola, log2_graph, transform_to_unit_circle, transform_from_unit_circle
 from .vectors import VectorSpace
 
 @tf.function
@@ -69,6 +69,26 @@ class Minimizer(tf.Module):
             tf.zeros([batch_size - active_count], dtype=tf.float64),
         ], axis=0)
         self.set_active_mask(mask)
+
+    def real_log_pitches(self):
+        """
+        The current log_pitches in real (untransformed) log2-ratio coordinates.
+        When the vector space is polar, log_pitches live in the transformed
+        space and are inverse-transformed here; otherwise returned as-is.
+        """
+        if getattr(self.vs, "polar", False):
+            return transform_from_unit_circle(self.log_pitches)
+        return tf.identity(self.log_pitches)
+
+    def set_real_log_pitches(self, log_pitches):
+        """
+        Assign log_pitches given in real log2-ratio coordinates, transforming
+        into the polar space when the vector space is polar.
+        """
+        log_pitches = tf.convert_to_tensor(log_pitches, dtype=tf.float64)
+        if getattr(self.vs, "polar", False):
+            log_pitches = transform_to_unit_circle(log_pitches)
+        self.log_pitches.assign(log_pitches)
 
     def set_active_mask(self, active_mask):
         mask = tf.convert_to_tensor(active_mask, dtype=tf.float64)

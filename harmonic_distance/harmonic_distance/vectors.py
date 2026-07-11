@@ -2,7 +2,7 @@ import tensorflow as tf
 import numpy as np
 from . import PRIMES
 from . import tenney
-from .utilities import log2_graph, E, get_bases, parabolic_scale, reduce_parabola
+from .utilities import log2_graph, E, get_bases, parabolic_scale, reduce_parabola, transform_to_unit_circle
 from .cartesian import permutations
 
 # Create default prime limits for ease of use
@@ -86,11 +86,13 @@ class VectorSpace(tf.Module):
             batch_size=BATCH_SIZE,
             materialize="auto",
             materialize_limit=MATERIALIZE_LIMIT,
+            polar=False,
             device=None,
             **kwargs):
         self.dimensions = dimensions
         self.batch_size = int(batch_size)
         self.materialize_limit = int(materialize_limit)
+        self.polar = bool(polar)
         with tf.device(device) if device is not None else _null_context():
             self.vectors = tf.identity(self.get_vectors(**kwargs))
         self.num_vectors = int(self.vectors.shape[0])
@@ -102,7 +104,7 @@ class VectorSpace(tf.Module):
         if self.materialize_mode == "full":
             self.perms = tf.Variable(self.get_perms(dimensions=dimensions), trainable=False)
             self.hds = tf.Variable(tenney.hd_aggregate_graph(self.perms), trainable=False)
-            self.pds = tf.Variable(tenney.pd_aggregate_graph(self.perms), trainable=False)
+            self.pds = tf.Variable(self._maybe_polar(tenney.pd_aggregate_graph(self.perms)), trainable=False)
         elif self.materialize_mode == "summaries":
             self.pds, self.hds = self.materialize_summaries()
 
@@ -136,7 +138,15 @@ class VectorSpace(tf.Module):
 
     def summary_batch(self, start, count):
         perms = self.permutation_batch(start, count)
-        return tenney.pd_aggregate_graph(perms), tenney.hd_aggregate_graph(perms)
+        return self._maybe_polar(tenney.pd_aggregate_graph(perms)), tenney.hd_aggregate_graph(perms)
+
+    def _maybe_polar(self, pds):
+        # When polar, all pds (and any log_pitches evaluated against them) live
+        # in the transformed space where magnitude equals chord span; convert
+        # at the boundaries with utilities.transform_{to,from}_unit_circle.
+        if self.polar:
+            return transform_to_unit_circle(pds)
+        return pds
 
     def materialize_summaries(self):
         pds = tf.Variable(

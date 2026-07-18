@@ -1,4 +1,5 @@
 import tensorflow as tf
+import numpy as np
 import datetime
 
 from .utilities import reduce_parabola, log2_graph, transform_to_unit_circle, transform_from_unit_circle
@@ -27,7 +28,8 @@ class Minimizer(tf.Module):
         gradients of the loss function. This is used to test whether a proper
         "valley" has been found.
         c: The "curve" of the parabola around each possible pitch. A higher
-        value will lead to fewer possible pitches.
+        value will lead to fewer possible pitches. Either a single number
+        applied to every voice, or one value per voice (batch row).
         """
         super().__init__(name=name)
         self.dimensions = dimensions
@@ -39,8 +41,11 @@ class Minimizer(tf.Module):
             dtype=tf.float64,
             name="convergence_threshold",
         )
-        self.curves = tf.Variable(tf.ones([dimensions], dtype=tf.float64), trainable=False)
-        self.set_all_curves(c)
+        # One curve per voice (batch row), shared across that voice's
+        # dimensions; stored as [batch_size, 1] so it broadcasts against the
+        # [candidates, batch, dimensions] coordinate tensors in the loss.
+        self.curves = tf.Variable(tf.ones([batch_size, 1], dtype=tf.float64), trainable=False)
+        self.set_curves(c)
         self.vs = vs if vs is not None else VectorSpace(dimensions=dimensions, **kwargs)
         self.log_pitches = tf.Variable(tf.zeros([batch_size, dimensions], dtype=tf.float64), dtype=tf.float64, name="log_pitches")
         self.active_mask = tf.Variable(tf.ones([batch_size], dtype=tf.float64), trainable=False, name="active_mask")
@@ -51,8 +56,27 @@ class Minimizer(tf.Module):
         self.callbacks = tf.keras.callbacks.CallbackList(callbacks=callbacks)
         self.callbacks.set_model(self)
 
+    def set_curves(self, curves):
+        """
+        Assign the parabola curve per voice. Accepts a single number (applied
+        to every voice) or a sequence with one value per voice; works after
+        tf.function tracing, like the other live controls.
+        """
+        batch_size = int(self.curves.shape[0])
+        values = np.asarray(curves, dtype=np.float64).reshape(-1)
+        if values.size == 1:
+            values = np.full([batch_size], values[0])
+        if values.shape[0] != batch_size:
+            raise ValueError(
+                f"curves must be a single number or one value per voice "
+                f"({batch_size}); got {values.shape[0]} values"
+            )
+        if not np.all(np.isfinite(values)) or np.any(values <= 0.0):
+            raise ValueError("curve values must be positive and finite")
+        self.curves.assign(values[:, None])
+
     def set_all_curves(self, c):
-        self.curves.assign([c for _ in range(self.dimensions)])
+        self.set_curves(float(c))
 
     def set_convergence_threshold(self, convergence_threshold):
         convergence_threshold = float(convergence_threshold)

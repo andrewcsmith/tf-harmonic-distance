@@ -60,6 +60,14 @@ instead of falling back to the batched full recomputation.
 
 `set_active_mask(...)` is now exposed in the core optimizer. `set_active_count(...)` remains as a contiguous-mask convenience wrapper. This supports masks with holes, e.g. `[1, 1, 0, 1]`.
 
+Curves are per voice: `Minimizer.curves` has shape `[batch_size, 1]`
+(broadcast across dimensions in the loss) and `set_curves(...)` accepts a
+single number for every voice or one value per voice; `set_all_curves(...)`
+survives as the scalar-only alias. Over OSC, `/hd/set_curve` takes one value
+(all voices, backwards-compatible) or up to `max_batch_size` values (voices
+`0..N-1`, rest unchanged) and `/hd/get_curves` reads them back; `--curve`
+accepts the same as comma-separated values.
+
 ## OSC Package
 
 The standalone package lives at:
@@ -95,6 +103,7 @@ Important OSC endpoints:
 /hd/set_active_mask
 /hd/get_active_mask
 /hd/set_curve
+/hd/get_curves
 /hd/set_convergence_threshold
 /hd/set_hd_limit
 /hd/set_pd_bounds

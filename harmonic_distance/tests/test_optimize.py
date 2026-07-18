@@ -72,6 +72,48 @@ def test_minimizer_uses_batched_vectorspace_loss(vs_321_2d_batched):
     res = minimizer.loss()
     np.testing.assert_almost_equal(exp, res)
 
+def test_minimizer_per_voice_curves_match_per_row_scalar_losses(vs_321_2d):
+    minimizer = hd.optimize.Minimizer(dimensions=2, batch_size=2, c=1.0, vs=vs_321_2d)
+    minimizer.set_curves([0.001, 0.01])
+    minimizer.log_pitches.assign(np.log2([[5/4, 3/2], [4/3, 3/2]]))
+    exp0 = vs_321_2d.loss(np.log2([[5/4, 3/2]]), curves=(0.001, 0.001))
+    exp1 = vs_321_2d.loss(np.log2([[4/3, 3/2]]), curves=(0.01, 0.01))
+    np.testing.assert_allclose([exp0[0], exp1[0]], minimizer.loss())
+
+def test_minimizer_set_curves_scalar_matches_constructor_c(vs_321_2d):
+    minimizer = hd.optimize.Minimizer(dimensions=2, batch_size=2, c=1.0, vs=vs_321_2d)
+    minimizer.set_curves(0.001)
+    minimizer.log_pitches.assign(np.log2([[5/4, 3/2], [4/3, 3/2]]))
+    exp = np.array([11.813781191217037, 12.339850002884624]) / 2.0
+    np.testing.assert_almost_equal(exp, minimizer.loss())
+
+def test_minimizer_set_curves_updates_after_tracing(vs_321_2d):
+    minimizer = hd.optimize.Minimizer(dimensions=2, batch_size=2, c=1.0, vs=vs_321_2d)
+    minimizer.log_pitches.assign(np.log2([[5/4, 3/2], [4/3, 3/2]]))
+    before = minimizer.loss()
+    minimizer.set_curves([0.001, 0.01])
+    after = minimizer.loss()
+    assert not np.allclose(before, after)
+    exp0 = vs_321_2d.loss(np.log2([[5/4, 3/2]]), curves=(0.001, 0.001))
+    exp1 = vs_321_2d.loss(np.log2([[4/3, 3/2]]), curves=(0.01, 0.01))
+    np.testing.assert_allclose([exp0[0], exp1[0]], after)
+
+def test_minimizer_set_curves_rejects_bad_values(vs_31_1d):
+    minimizer = hd.optimize.Minimizer(dimensions=1, batch_size=2, vs=vs_31_1d)
+    with pytest.raises(ValueError, match="one value per voice"):
+        minimizer.set_curves([0.01, 0.01, 0.01])
+    with pytest.raises(ValueError, match="positive and finite"):
+        minimizer.set_curves(0.0)
+    with pytest.raises(ValueError, match="positive and finite"):
+        minimizer.set_curves([0.01, -0.01])
+
+def test_vectorspace_batched_loss_per_voice_curves_matches_materialized(vs_321_2d, vs_321_2d_batched):
+    log_pitches = np.log2([[5/4, 3/2], [4/3, 3/2]])
+    curves = np.array([[0.001], [0.01]])
+    exp = vs_321_2d.loss(log_pitches, curves=curves)
+    res = vs_321_2d_batched.loss(log_pitches, curves=curves)
+    np.testing.assert_allclose(exp, res)
+
 def test_minimizer_uses_loaded_vectorspace_loss(tmp_path, vs_321_2d):
     path = tmp_path / "vs.npz"
     vs_321_2d.save(path)

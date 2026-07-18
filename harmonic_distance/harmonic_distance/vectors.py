@@ -13,6 +13,7 @@ DIMS = 1
 BATCH_SIZE = 65536
 MATERIALIZE_LIMIT = 1_000_000
 MATERIALIZE_MODES = ("auto", "none", "summaries", "full")
+SAVE_FORMAT_VERSION = 1
 
 def pd_graph(vectors):
     """
@@ -95,6 +96,13 @@ class VectorSpace(tf.Module):
         self.materialize_limit = int(materialize_limit)
         self.polar = bool(polar)
         self.progress_callback = progress_callback
+        # Enumeration provenance, kept so save()/load() can carry it and
+        # callers can rebuild a space with adjusted filters. pd_bounds=None
+        # means unbounded (get_vectors applies no pitch-distance filter).
+        pd_bounds = kwargs.get("pd_bounds", PD_BOUNDS)
+        self.prime_limits = list(kwargs.get("prime_limits", PRIME_LIMITS))
+        self.pd_bounds = None if pd_bounds is None else tuple(float(b) for b in pd_bounds)
+        self.hd_limit = float(kwargs.get("hd_limit", HD_LIMIT))
         with tf.device(device) if device is not None else _null_context():
             self.vectors = tf.identity(self.get_vectors(**kwargs))
         self.num_vectors = int(self.vectors.shape[0])
@@ -233,7 +241,118 @@ class VectorSpace(tf.Module):
         summary_total_bytes = max(1, self._permutation_count * summary_row_bytes)
         memory_limited_batch_size = max(1, summary_total_bytes // permutation_row_bytes)
         return int(min(self.batch_size, memory_limited_batch_size))
-    
+
+    def save(self, path):
+        """
+        Serialize the base vectors and the cached pds/hds summaries so load()
+        can restore this space without enumerating vectors or recomputing
+        summaries. perms are never written: they are fully determined by
+        (vectors, dimensions) and recalled by index with perms_at().
+        """
+        if not self.materialized:
+            raise ValueError(
+                "cannot save a VectorSpace with materialize='none'; "
+                "construct with 'summaries' or 'full' first"
+            )
+        # Write through an explicit handle so np.savez_compressed cannot
+        # append an implicit .npz suffix, keeping save/load paths symmetric.
+        # Provenance sentinels: prime_limits=[] and hd_limit=nan mean unknown
+        # (a space loaded from a pre-provenance file); pd_bounds=+-inf means
+        # enumerated without pitch-distance bounds.
+        with open(path, "wb") as handle:
+            np.savez_compressed(
+                handle,
+                format_version=SAVE_FORMAT_VERSION,
+                vectors=self.vectors.numpy(),
+                pds=self.pds.numpy(),
+                hds=self.hds.numpy(),
+                dimensions=self.dimensions,
+                polar=self.polar,
+                batch_size=self.batch_size,
+                materialize_limit=self.materialize_limit,
+                prime_limits=np.asarray(
+                    [] if self.prime_limits is None else self.prime_limits, dtype=np.int64
+                ),
+                pd_bounds=np.asarray(
+                    [-np.inf, np.inf] if self.pd_bounds is None else self.pd_bounds,
+                    dtype=np.float64,
+                ),
+                hd_limit=np.float64(np.nan if self.hd_limit is None else self.hd_limit),
+            )
+
+    @classmethod
+    def load(cls, path, batch_size=None, device=None):
+        """
+        Restore a VectorSpace written by save(). The result behaves like a
+        materialize='summaries' space: pds/hds come straight from disk (in
+        polar spaces they are already transformed), the permutation space is
+        never constructed, and closest_from_log()/perms_at() decode
+        individual permutations from their cartesian index on demand.
+        """
+        with np.load(path) as data:
+            version = int(data["format_version"])
+            if version != SAVE_FORMAT_VERSION:
+                raise ValueError(
+                    f"unsupported VectorSpace save format {version}; "
+                    f"expected {SAVE_FORMAT_VERSION}"
+                )
+            vectors = data["vectors"]
+            pds = data["pds"]
+            hds = data["hds"]
+            dimensions = int(data["dimensions"])
+            polar = bool(data["polar"])
+            saved_batch_size = int(data["batch_size"])
+            materialize_limit = int(data["materialize_limit"])
+            # Enumeration provenance; tolerate files saved before it existed.
+            saved_prime_limits = (
+                data["prime_limits"] if "prime_limits" in data.files else np.asarray([])
+            )
+            saved_pd_bounds = (
+                data["pd_bounds"]
+                if "pd_bounds" in data.files
+                else np.asarray([np.nan, np.nan])
+            )
+            saved_hd_limit = float(data["hd_limit"]) if "hd_limit" in data.files else np.nan
+        permutation_count = int(vectors.shape[0]) ** dimensions
+        if pds.shape != (permutation_count, dimensions):
+            raise ValueError(
+                f"saved pds shape {pds.shape} does not match "
+                f"{vectors.shape[0]} vectors in {dimensions} dimensions"
+            )
+        if hds.shape != (permutation_count,):
+            raise ValueError(
+                f"saved hds shape {hds.shape} does not match "
+                f"{vectors.shape[0]} vectors in {dimensions} dimensions"
+            )
+        self = cls.__new__(cls)
+        tf.Module.__init__(self)
+        self.dimensions = dimensions
+        self.batch_size = int(batch_size) if batch_size is not None else saved_batch_size
+        self.materialize_limit = materialize_limit
+        self.polar = polar
+        self.progress_callback = None
+        self.prime_limits = (
+            [int(limit) for limit in saved_prime_limits] if saved_prime_limits.size else None
+        )
+        if np.isnan(saved_pd_bounds).any() or np.isinf(saved_pd_bounds).all():
+            self.pd_bounds = None
+        else:
+            self.pd_bounds = tuple(float(bound) for bound in saved_pd_bounds)
+        self.hd_limit = None if np.isnan(saved_hd_limit) else float(saved_hd_limit)
+        with tf.device(device) if device is not None else _null_context():
+            self.vectors = tf.constant(vectors, dtype=tf.float64)
+            restored_pds = tf.Variable(pds, trainable=False, dtype=tf.float64)
+            restored_hds = tf.Variable(hds, trainable=False, dtype=tf.float64)
+        self.num_vectors = int(self.vectors.shape[0])
+        self.n_primes = int(self.vectors.shape[-1])
+        self._permutation_count = permutation_count
+        self.materialize_mode = "summaries"
+        self.materialized = True
+        self.has_perms = False
+        self.pds = restored_pds
+        self.hds = restored_hds
+        return self
+
     @tf.function
     def closest_from_log(self, log_pitches):
         if not self.materialized:

@@ -72,6 +72,16 @@ def test_minimizer_uses_batched_vectorspace_loss(vs_321_2d_batched):
     res = minimizer.loss()
     np.testing.assert_almost_equal(exp, res)
 
+def test_minimizer_uses_loaded_vectorspace_loss(tmp_path, vs_321_2d):
+    path = tmp_path / "vs.npz"
+    vs_321_2d.save(path)
+    loaded = hd.vectors.VectorSpace.load(path)
+    minimizer = hd.optimize.Minimizer(dimensions=2, batch_size=2, c=0.001, vs=loaded)
+    minimizer.log_pitches.assign(np.log2([[5/4, 3/2], [4/3, 3/2]]))
+    exp = np.array([11.813781191217037, 12.339850002884624]) / 2.0
+    res = minimizer.loss()
+    np.testing.assert_almost_equal(exp, res)
+
 @pytest.mark.slow
 def test_minimizer_1d(vs_321_1d):
     minimizer = hd.optimize.Minimizer(dimensions=1, convergence_threshold=1.0e-4, vs=vs_321_1d)

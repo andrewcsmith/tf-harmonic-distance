@@ -241,3 +241,88 @@ def test_vectorspace_summaries_closest_from_log_matches_full(vs_321_2d):
         vs_321_2d.closest_from_log(log_pitches),
         summaries.closest_from_log(log_pitches),
     )
+
+def test_vectorspace_save_load_roundtrip(tmp_path, vs_321_2d):
+    path = tmp_path / "vs_321_2d.npz"
+    vs_321_2d.save(path)
+    loaded = hd.vectors.VectorSpace.load(path)
+    assert loaded.materialize_mode == "summaries"
+    assert loaded.materialized
+    assert not loaded.has_perms
+    assert not hasattr(loaded, "perms")
+    assert loaded.dimensions == vs_321_2d.dimensions
+    assert loaded.num_vectors == vs_321_2d.num_vectors
+    assert loaded.permutation_count == vs_321_2d.permutation_count
+    assert loaded.batch_size == vs_321_2d.batch_size
+    assert not loaded.polar
+    assert loaded.prime_limits == [3, 2, 1]
+    assert loaded.pd_bounds == vs_321_2d.pd_bounds
+    assert loaded.hd_limit == vs_321_2d.hd_limit
+    np.testing.assert_array_equal(vs_321_2d.vectors, loaded.vectors)
+    np.testing.assert_array_equal(vs_321_2d.pds, loaded.pds)
+    np.testing.assert_array_equal(vs_321_2d.hds, loaded.hds)
+
+def test_vectorspace_loaded_space_matches_loss_and_closest(tmp_path, vs_321_2d):
+    path = tmp_path / "vs.npz"
+    vs_321_2d.save(path)
+    loaded = hd.vectors.VectorSpace.load(path)
+    log_pitches = np.array([[702., 386.], [498., 315.]]) / 1200.0
+    np.testing.assert_array_equal(
+        vs_321_2d.closest_from_log(log_pitches),
+        loaded.closest_from_log(log_pitches),
+    )
+    np.testing.assert_allclose(
+        vs_321_2d.loss(log_pitches, curves=(0.01, 0.01)),
+        loaded.loss(log_pitches, curves=(0.01, 0.01)),
+    )
+    np.testing.assert_array_equal(
+        vs_321_2d.perms_at([0, 5, 11]), loaded.perms_at([0, 5, 11])
+    )
+
+def test_vectorspace_save_load_polar(tmp_path, vs_321_2d_polar):
+    path = tmp_path / "vs_polar.npz"
+    vs_321_2d_polar.save(path)
+    loaded = hd.vectors.VectorSpace.load(path)
+    assert loaded.polar
+    np.testing.assert_array_equal(vs_321_2d_polar.pds, loaded.pds)
+    np.testing.assert_array_equal(vs_321_2d_polar.hds, loaded.hds)
+
+def test_vectorspace_load_can_override_batch_size(tmp_path, vs_31_2d):
+    path = tmp_path / "vs.npz"
+    vs_31_2d.save(path)
+    loaded = hd.vectors.VectorSpace.load(path, batch_size=17)
+    assert loaded.batch_size == 17
+
+def test_vectorspace_save_requires_materialized_summaries(tmp_path, vs_321_2d_batched):
+    with pytest.raises(ValueError, match="materialize='none'"):
+        vs_321_2d_batched.save(tmp_path / "vs.npz")
+
+def test_vectorspace_records_enumeration_provenance(vs_321_2d):
+    assert vs_321_2d.prime_limits == [3, 2, 1]
+    assert vs_321_2d.pd_bounds == hd.vectors.PD_BOUNDS
+    assert vs_321_2d.hd_limit == hd.vectors.HD_LIMIT
+
+def test_vectorspace_provenance_respects_explicit_filters():
+    vs = hd.vectors.VectorSpace(
+        prime_limits=[3, 1], dimensions=1, pd_bounds=(0.0, 1.0), hd_limit=6.0
+    )
+    assert vs.prime_limits == [3, 1]
+    assert vs.pd_bounds == (0.0, 1.0)
+    assert vs.hd_limit == 6.0
+
+def test_vectorspace_load_tolerates_missing_provenance(tmp_path, vs_31_2d):
+    path = tmp_path / "vs.npz"
+    vs_31_2d.save(path)
+    with np.load(path) as data:
+        stripped = {
+            key: data[key]
+            for key in data.files
+            if key not in ("prime_limits", "pd_bounds", "hd_limit")
+        }
+    with open(path, "wb") as handle:
+        np.savez_compressed(handle, **stripped)
+    loaded = hd.vectors.VectorSpace.load(path)
+    assert loaded.prime_limits is None
+    assert loaded.pd_bounds is None
+    assert loaded.hd_limit is None
+    np.testing.assert_array_equal(vs_31_2d.pds, loaded.pds)

@@ -126,11 +126,25 @@ class VectorSpace(tf.Module):
     def permutation_indices(self, start, count):
         stop = min(int(start) + int(count), self._permutation_count)
         flat = tf.range(int(start), stop, dtype=tf.int64)
-        indices = []
-        for power in reversed(range(self.dimensions)):
-            divisor = self.num_vectors ** power
-            indices.append((flat // divisor) % self.num_vectors)
-        return tf.stack(indices, axis=-1)
+        return self._flat_to_permutation_indices(flat)
+
+    def perms_at(self, flat_indices):
+        """
+        Materialize only the permutations at the given flat cartesian-product
+        indices, decoding each index into its per-dimension vector indices —
+        the full perms tensor is never required (or consulted). Accepts any
+        shape of indices and returns shape [..., dimensions, n_primes].
+        """
+        flat = tf.cast(tf.convert_to_tensor(flat_indices), tf.int64)
+        tf.debugging.assert_non_negative(
+            flat, message="permutation index must be non-negative"
+        )
+        tf.debugging.assert_less(
+            flat,
+            tf.constant(self._permutation_count, dtype=tf.int64),
+            message="permutation index out of range",
+        )
+        return tf.gather(self.vectors, self._flat_to_permutation_indices(flat))
 
     def permutation_batch(self, start, count):
         indices = self.permutation_indices(start, count)
@@ -222,11 +236,13 @@ class VectorSpace(tf.Module):
     
     @tf.function
     def closest_from_log(self, log_pitches):
-        if not self.has_perms:
+        if not self.materialized:
             return self._closest_from_log_batched(log_pitches)
         diffs = tf.abs(self.pds[:, None] - log_pitches[None, :])
         mins = tf.argmin(tf.reduce_sum(diffs, axis=-1), axis=0)
-        return tf.gather(self.perms, mins, axis=0)
+        if self.has_perms:
+            return tf.gather(self.perms, mins, axis=0)
+        return self.perms_at(mins)
 
     def _closest_from_log_batched(self, log_pitches):
         batch_count = int(log_pitches.shape[0])
@@ -240,7 +256,7 @@ class VectorSpace(tf.Module):
             is_better = chunk_values < best_values
             best_values = tf.where(is_better, chunk_values, best_values)
             best_indices = tf.where(is_better, chunk_indices, best_indices)
-        return tf.gather(self.vectors, self._flat_to_permutation_indices(best_indices))
+        return self.perms_at(best_indices)
 
     def unique_ratios(self, log_pitches):
         ratios = to_ratio(self.closest_from_log(log_pitches))

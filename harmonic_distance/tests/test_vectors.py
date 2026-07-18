@@ -211,3 +211,33 @@ def test_vectorspace_polar_batched_gradient_matches_materialized(vs_321_2d_polar
 def test_vectorspace_rejects_boolean_materialize():
     with pytest.raises(ValueError, match="materialize must be"):
         hd.vectors.VectorSpace(prime_limits=[3, 1], dimensions=1, materialize=True)
+
+def test_vectorspace_perms_at_matches_full_perms(vs_321_2d):
+    indices = np.array([0, 1, 7, vs_321_2d.permutation_count - 1], dtype=np.int64)
+    np.testing.assert_array_equal(
+        tf.gather(vs_321_2d.perms, indices),
+        vs_321_2d.perms_at(indices),
+    )
+
+def test_vectorspace_perms_at_accepts_scalar_and_nested_shapes(vs_321_2d):
+    scalar = vs_321_2d.perms_at(3)
+    assert scalar.shape == (vs_321_2d.dimensions, vs_321_2d.n_primes)
+    np.testing.assert_array_equal(scalar, vs_321_2d.perms[3])
+    nested = vs_321_2d.perms_at([[0, 1], [2, 3]])
+    np.testing.assert_array_equal(nested[1, 0], vs_321_2d.perms[2])
+
+def test_vectorspace_perms_at_rejects_out_of_range(vs_321_2d):
+    with pytest.raises(tf.errors.InvalidArgumentError, match="out of range"):
+        vs_321_2d.perms_at([vs_321_2d.permutation_count])
+    with pytest.raises(tf.errors.InvalidArgumentError, match="non-negative"):
+        vs_321_2d.perms_at([-1])
+
+def test_vectorspace_summaries_closest_from_log_matches_full(vs_321_2d):
+    summaries = hd.vectors.VectorSpace(
+        prime_limits=[3, 2, 1], dimensions=2, materialize="summaries"
+    )
+    log_pitches = np.array([[702., 386.], [498., 315.]]) / 1200.0
+    np.testing.assert_array_equal(
+        vs_321_2d.closest_from_log(log_pitches),
+        summaries.closest_from_log(log_pitches),
+    )

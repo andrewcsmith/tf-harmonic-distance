@@ -52,10 +52,12 @@ The pipeline from ratios to optimized pitches spans four modules in `harmonic_di
 
 `VectorSpace(materialize=...)` takes a string, never a bool (bools raise):
 
-- `"full"`: cache `perms`, `pds`, `hds` as variables.
-- `"summaries"`: cache only `pds`/`hds`, computed in memory-bounded chunks — for high dimensions where full perms don't fit but recomputing summaries every step is too slow.
+- `"full"`: cache `perms`, `pds`, `hds` as variables, built in chunks of `batch_size` rows (each row's hd/pd is independent, so chunking doesn't change results — it only bounds peak memory during construction, which otherwise spikes because `hd_aggregate_graph`/`pd_aggregate_graph` would run over the entire permutation space in one op).
+- `"summaries"`: cache only `pds`/`hds`, also built in memory-bounded chunks — for high dimensions where full perms don't fit but recomputing summaries every step is too slow.
 - `"none"`: recompute everything batch-by-batch during loss evaluation; the batched loss path uses a `tf.custom_gradient` (`_batched_loss`).
 - `"auto"` (default): `"full"` if `num_vectors ** dimensions <= materialize_limit` (1M), else `"none"`.
+
+Both `"full"` and `"summaries"` accept `progress_callback(batch_index, total_batches)` (1-indexed). A `batch_index=0` call fires first — before the full-size `pds`/`hds`/`perms` arrays are allocated — since `permutation_count` grows as `num_vectors ** dimensions` and that allocation alone can be slow or memory-heavy at higher dimensions; the 0-call surfaces `total_batches` (hence scale) before that happens. One call per completed chunk follows. The OSC server passes a default printer so this shows at startup regardless of which mode `"auto"` resolves to.
 
 `Minimizer.loss()` delegates to `VectorSpace.loss()`, which routes to the materialized or batched implementation.
 

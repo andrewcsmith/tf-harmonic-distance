@@ -87,12 +87,14 @@ class VectorSpace(tf.Module):
             materialize="auto",
             materialize_limit=MATERIALIZE_LIMIT,
             polar=False,
+            progress_callback=None,
             device=None,
             **kwargs):
         self.dimensions = dimensions
         self.batch_size = int(batch_size)
         self.materialize_limit = int(materialize_limit)
         self.polar = bool(polar)
+        self.progress_callback = progress_callback
         with tf.device(device) if device is not None else _null_context():
             self.vectors = tf.identity(self.get_vectors(**kwargs))
         self.num_vectors = int(self.vectors.shape[0])
@@ -102,9 +104,7 @@ class VectorSpace(tf.Module):
         self.materialized = self.materialize_mode != "none"
         self.has_perms = self.materialize_mode == "full"
         if self.materialize_mode == "full":
-            self.perms = tf.Variable(self.get_perms(dimensions=dimensions), trainable=False)
-            self.hds = tf.Variable(tenney.hd_aggregate_graph(self.perms), trainable=False)
-            self.pds = tf.Variable(self._maybe_polar(tenney.pd_aggregate_graph(self.perms)), trainable=False)
+            self.perms, self.pds, self.hds = self.materialize_full()
         elif self.materialize_mode == "summaries":
             self.pds, self.hds = self.materialize_summaries()
 
@@ -148,18 +148,67 @@ class VectorSpace(tf.Module):
             return transform_to_unit_circle(pds)
         return pds
 
-    def materialize_summaries(self):
+    def full_batch(self, start, count):
+        perms = self.permutation_batch(start, count)
+        pds = self._maybe_polar(tenney.pd_aggregate_graph(perms))
+        hds = tenney.hd_aggregate_graph(perms)
+        return perms, pds, hds
+
+    def materialize_full(self):
+        # Computing hd_aggregate_graph/pd_aggregate_graph over the entire
+        # permutation space in a single op (as opposed to summaries mode,
+        # which was already chunked) can spike device memory well past what
+        # the final perms/pds/hds variables need. Chunk by self.batch_size
+        # instead; each row is computed independently, so the result is
+        # identical to the unchunked computation.
+        batch_size = self.batch_size
+        total_batches = -(-self._permutation_count // batch_size)
+        # permutation_count grows as num_vectors ** dimensions, so allocating
+        # the full-size arrays below can itself be slow or memory-heavy before
+        # any per-batch work (or progress_callback call) happens; announce the
+        # plan first with the batch_index=0 sentinel.
+        if self.progress_callback is not None:
+            self.progress_callback(0, total_batches)
+        perms = tf.Variable(
+            tf.zeros([self._permutation_count, self.dimensions, self.n_primes], dtype=tf.float64),
+            trainable=False,
+        )
         pds = tf.Variable(
             tf.zeros([self._permutation_count, self.dimensions], dtype=tf.float64),
             trainable=False,
         )
         hds = tf.Variable(tf.zeros([self._permutation_count], dtype=tf.float64), trainable=False)
+        starts = range(0, self._permutation_count, batch_size)
+        for batch_index, start in enumerate(starts, start=1):
+            count = min(batch_size, self._permutation_count - start)
+            chunk_perms, chunk_pds, chunk_hds = self.full_batch(start, count)
+            perms[start : start + count].assign(chunk_perms)
+            pds[start : start + count].assign(chunk_pds)
+            hds[start : start + count].assign(chunk_hds)
+            if self.progress_callback is not None:
+                self.progress_callback(batch_index, total_batches)
+        return perms, pds, hds
+
+    def materialize_summaries(self):
         batch_size = self.summary_materialization_batch_size()
-        for start in range(0, self._permutation_count, batch_size):
+        total_batches = -(-self._permutation_count // batch_size)
+        # Same rationale as materialize_full: announce before the potentially
+        # slow/large full-size allocation, not just once chunked work starts.
+        if self.progress_callback is not None:
+            self.progress_callback(0, total_batches)
+        pds = tf.Variable(
+            tf.zeros([self._permutation_count, self.dimensions], dtype=tf.float64),
+            trainable=False,
+        )
+        hds = tf.Variable(tf.zeros([self._permutation_count], dtype=tf.float64), trainable=False)
+        starts = range(0, self._permutation_count, batch_size)
+        for batch_index, start in enumerate(starts, start=1):
             count = min(batch_size, self._permutation_count - start)
             chunk_pds, chunk_hds = self.summary_batch(start, count)
             pds[start : start + count].assign(chunk_pds)
             hds[start : start + count].assign(chunk_hds)
+            if self.progress_callback is not None:
+                self.progress_callback(batch_index, total_batches)
         return pds, hds
 
     def summary_materialization_batch_size(self):

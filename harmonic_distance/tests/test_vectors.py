@@ -124,6 +124,54 @@ def test_vectorspace_auto_can_skip_materialization():
     assert not hasattr(vs, "perms")
     assert vs.permutation_count > 1
 
+def test_vectorspace_summaries_progress_callback():
+    calls = []
+    vs = hd.vectors.VectorSpace(
+        prime_limits=[3, 1],
+        dimensions=3,
+        batch_size=1_000_000,
+        materialize="summaries",
+        progress_callback=lambda batch_index, total_batches: calls.append((batch_index, total_batches)),
+    )
+    expected_total = -(-vs.permutation_count // vs.summary_materialization_batch_size())
+    assert calls == [(0, expected_total)] + [(i, expected_total) for i in range(1, expected_total + 1)]
+    assert expected_total > 1
+
+def test_vectorspace_full_materialization_is_chunked_and_matches_unchunked(vs_31_2d):
+    chunked = hd.vectors.VectorSpace(
+        prime_limits=[3, 1],
+        dimensions=2,
+        batch_size=3,
+        materialize="full",
+    )
+    np.testing.assert_array_equal(vs_31_2d.perms, chunked.perms)
+    np.testing.assert_allclose(vs_31_2d.pds, chunked.pds)
+    np.testing.assert_allclose(vs_31_2d.hds, chunked.hds)
+
+def test_vectorspace_full_progress_callback():
+    calls = []
+    vs = hd.vectors.VectorSpace(
+        prime_limits=[3, 1],
+        dimensions=2,
+        batch_size=3,
+        materialize="full",
+        progress_callback=lambda batch_index, total_batches: calls.append((batch_index, total_batches)),
+    )
+    expected_total = -(-vs.permutation_count // vs.batch_size)
+    assert calls == [(0, expected_total)] + [(i, expected_total) for i in range(1, expected_total + 1)]
+    assert expected_total > 1
+
+def test_vectorspace_progress_callback_not_invoked_for_none_mode():
+    calls = []
+    hd.vectors.VectorSpace(
+        prime_limits=[3, 1],
+        dimensions=1,
+        batch_size=1,
+        materialize="none",
+        progress_callback=lambda *args: calls.append(args),
+    )
+    assert calls == []
+
 def test_vectorspace_polar_transforms_pds(vs_321_2d, vs_321_2d_polar):
     np.testing.assert_allclose(
         hd.utilities.transform_to_unit_circle(vs_321_2d.pds), vs_321_2d_polar.pds

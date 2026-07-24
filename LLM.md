@@ -58,6 +58,12 @@ instead of falling back to the batched full recomputation.
 
 `convergence_threshold` is now a non-trainable TensorFlow variable with `set_convergence_threshold(...)`, so changes after `tf.function` tracing are respected.
 
+`max_iters` is likewise a non-trainable variable with `set_max_iters(...)`;
+0 or None means unlimited (converge until the threshold is met). It is read
+on every loop iteration, so assigning a small value from another thread —
+`/hd/set_max_iters` over OSC — halts a running minimize after the current
+step; that is the intended stop lever for unlimited runs.
+
 `set_active_mask(...)` is now exposed in the core optimizer. `set_active_count(...)` remains as a contiguous-mask convenience wrapper. This supports masks with holes, e.g. `[1, 1, 0, 1]`.
 
 Curves are per voice: `Minimizer.curves` has shape `[batch_size, 1]`
@@ -105,6 +111,7 @@ Important OSC endpoints:
 /hd/set_curve
 /hd/get_curves
 /hd/set_convergence_threshold
+/hd/set_max_iters
 /hd/set_hd_limit
 /hd/set_pd_bounds
 /hd/get_perm

@@ -23,7 +23,10 @@ class Minimizer(tf.Module):
         minimum of a single interval.
         learning_rate: The learning rate of the optimization algorithm. A higher
         value will converge more quickly, if possible, but might never converge.
-        max_iters: Maximum number of iterations before giving up on convergence.
+        max_iters: Maximum number of iterations before giving up on
+        convergence. 0 or None means unlimited: run until the convergence
+        threshold is met (or until max_iters/convergence_threshold is raised
+        live from another thread).
         convergence_threshold: The convergence threshold is the norm of the
         gradients of the loss function. This is used to test whether a proper
         "valley" has been found.
@@ -34,7 +37,11 @@ class Minimizer(tf.Module):
         super().__init__(name=name)
         self.dimensions = dimensions
         self.learning_rate = learning_rate # tf.Variable(learning_rate)
-        self.max_iters = max_iters
+        # A variable (not a Python int) so the iteration budget is read live
+        # inside the traced minimize() loop: it can be changed after tracing,
+        # including mid-run from another thread to halt an unlimited run.
+        self.max_iters = tf.Variable(0, trainable=False, dtype=tf.int64, name="max_iters")
+        self.set_max_iters(max_iters)
         self.convergence_threshold = tf.Variable(
             float(convergence_threshold),
             trainable=False,
@@ -77,6 +84,17 @@ class Minimizer(tf.Module):
 
     def set_all_curves(self, c):
         self.set_curves(float(c))
+
+    def set_max_iters(self, max_iters):
+        """
+        Set the iteration budget; 0 or None means unlimited. A live control:
+        assigning a small value while minimize() is running (from another
+        thread) halts the run after the current iteration.
+        """
+        max_iters = 0 if max_iters is None else int(max_iters)
+        if max_iters < 0:
+            raise ValueError(f"max_iters must be >= 0 (0 means unlimited); got {max_iters}")
+        self.max_iters.assign(max_iters)
 
     def set_convergence_threshold(self, convergence_threshold):
         convergence_threshold = float(convergence_threshold)
@@ -135,7 +153,7 @@ class Minimizer(tf.Module):
     def minimize(self):
         self.step.assign(0)
         self.reinitialize_optimizer_state()
-        while self.stopping_op() and self.step < self.max_iters:
+        while self.stopping_op() and (self.max_iters == 0 or self.step < self.max_iters):
             self.opt_minimize()
             self.step.assign_add(1)
             self.callbacks.on_train_batch_end(self.step)
@@ -164,7 +182,7 @@ class Minimizer(tf.Module):
                 self.writers.append(self.timestamped_writer(var=("/pitch{}".format(idx+1))))
         if log:
             self.write_values()
-        while self.stopping_op() and self.step < self.max_iters:
+        while self.stopping_op() and (self.max_iters == 0 or self.step < self.max_iters):
             self.opt_minimize()
             self.step.assign_add(1)
             self.callbacks.on_train_batch_end(self.step)

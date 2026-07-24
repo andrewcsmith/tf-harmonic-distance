@@ -72,6 +72,45 @@ def test_minimizer_uses_batched_vectorspace_loss(vs_321_2d_batched):
     res = minimizer.loss()
     np.testing.assert_almost_equal(exp, res)
 
+def test_minimizer_max_iters_caps_steps(vs_31_1d):
+    minimizer = hd.optimize.Minimizer(
+        dimensions=1, batch_size=1, max_iters=5, convergence_threshold=1.0e-300, vs=vs_31_1d
+    )
+    minimizer.log_pitches.assign([[np.log2(3/2) + 0.01]])
+    minimizer.minimize()
+    assert int(minimizer.step.numpy()) == 5
+
+def test_minimizer_zero_max_iters_runs_until_convergence(vs_31_1d):
+    minimizer = hd.optimize.Minimizer(
+        dimensions=1, batch_size=1, max_iters=0, convergence_threshold=1.0e-5, vs=vs_31_1d
+    )
+    minimizer.log_pitches.assign([[np.log2(3/2) + 0.001]])
+    minimizer.minimize()
+    assert not bool(minimizer.stopping_op().numpy())  # converged, not capped
+    assert int(minimizer.step.numpy()) > 0
+
+def test_minimizer_none_max_iters_means_unlimited(vs_31_1d):
+    minimizer = hd.optimize.Minimizer(
+        dimensions=1, batch_size=1, max_iters=None, convergence_threshold=1.0e-5, vs=vs_31_1d
+    )
+    assert int(minimizer.max_iters.numpy()) == 0
+
+def test_minimizer_set_max_iters_updates_after_tracing(vs_31_1d):
+    minimizer = hd.optimize.Minimizer(
+        dimensions=1, batch_size=1, max_iters=3, convergence_threshold=1.0e-300, vs=vs_31_1d
+    )
+    minimizer.log_pitches.assign([[np.log2(3/2) + 0.01]])
+    minimizer.minimize()
+    assert int(minimizer.step.numpy()) == 3
+    minimizer.set_max_iters(6)
+    minimizer.minimize()
+    assert int(minimizer.step.numpy()) == 6
+
+def test_minimizer_set_max_iters_rejects_negative(vs_31_1d):
+    minimizer = hd.optimize.Minimizer(dimensions=1, batch_size=1, vs=vs_31_1d)
+    with pytest.raises(ValueError, match="max_iters must be >= 0"):
+        minimizer.set_max_iters(-1)
+
 def test_minimizer_per_voice_curves_match_per_row_scalar_losses(vs_321_2d):
     minimizer = hd.optimize.Minimizer(dimensions=2, batch_size=2, c=1.0, vs=vs_321_2d)
     minimizer.set_curves([0.001, 0.01])
